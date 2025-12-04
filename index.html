@@ -83,31 +83,68 @@
         </button>
       </div>
 
-      <!-- 词库 -->
+      <!-- 词库（支持分组） -->
       <div v-if="currentView==='library'" class="max-w-4xl mx-auto flex flex-col gap-6">
-        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5 mt-4 flex flex-col gap-3">
-          <div class="flex items-baseline justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">我的动词词库</h2>
-            <span class="text-[11px] text-gray-400">点击卡片可查看变位</span>
+        <!-- 分组管理 -->
+        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5 mt-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">当前分组</label>
+              <select v-model="currentGroup"
+                      class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option v-for="g in groupNames" :key="g" :value="g">{{ g }} ({{ groups[g].length }})</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">新建分组</label>
+              <div class="flex gap-2">
+                <input v-model="newGroupName" placeholder="如：不规则动词"
+                       class="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+                <button @click="addGroup" class="px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black transition">添加分组</button>
+              </div>
+            </div>
+            <div class="text-right text-xs text-gray-500">
+              <div>总词数：{{ allVerbs.length }}</div>
+              <div class="mt-1">当前分组：{{ groups[currentGroup]?.length || 0 }}</div>
+            </div>
           </div>
-          <div class="flex gap-2 mt-1">
+        </div>
+
+        <!-- 词条添加 -->
+        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5">
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">分组词库 · {{ currentGroup }}</h2>
+            <span class="text-[11px] text-gray-400">点击卡片查看变位，可移动到其它分组</span>
+          </div>
+          <div class="flex gap-2 mt-3">
             <input v-model="newVerb" @keyup.enter="addVerb" placeholder="输入动词（如：s'asseoir, peindre）"
                    class="flex-grow text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
             <button @click="addVerb" class="px-4 md:px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black transition whitespace-nowrap">
-              添加
+              添加到 {{ currentGroup }}
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pb-6">
-          <div v-for="(v, idx) in verbLibrary" :key="idx"
-               class="bg-white/70 backdrop-blur border border-gray-100 hover:border-emerald-200 p-3 rounded-2xl shadow-sm hover:shadow-md cursor-pointer flex justify-between items-center group transition-all">
-            <button class="flex-1 text-left" @click="showConjugationTable(v)">
-              <span class="block font-semibold text-gray-800 text-sm truncate">{{ v }}</span>
-            </button>
-            <button @click.stop="removeVerb(idx)" class="ml-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
-              <i class="fas fa-trash text-xs"></i>
-            </button>
+        <!-- 词条列表（当前分组） -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-6">
+          <div v-for="(v, idx) in groupVerbs" :key="v"
+               class="bg-white/70 backdrop-blur border border-gray-100 hover:border-emerald-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all">
+            <div class="flex items-center justify-between gap-2">
+              <button class="flex-1 text-left" @click="showConjugationTable(v)">
+                <span class="block font-semibold text-gray-800 text-sm truncate">{{ v }}</span>
+              </button>
+              <button @click="removeVerb(idx)" class="ml-2 text-gray-300 hover:text-red-500 transition">
+                <i class="fas fa-trash text-xs"></i>
+              </button>
+            </div>
+            <div class="mt-2">
+              <label class="block text-[11px] text-gray-400 mb-1">移动到</label>
+              <select @change="moveVerb(v, $event.target.value)"
+                      class="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50/80">
+                <option disabled selected value="">选择分组</option>
+                <option v-for="g in groupNames" :key="g" :value="g" v-if="g!==currentGroup">{{ g }}</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -119,12 +156,14 @@
           <div class="flex items-center justify-between mb-6">
             <div>
               <h2 class="text-xl font-semibold text-gray-900 tracking-tight">生成练习配置</h2>
-              <p class="text-xs text-gray-500 mt-1">选择水平和时态，由 AI 自动生成填空题。</p>
+              <p class="text-xs text-gray-500 mt-1">
+                选择水平 → 练习时态 → 动词来源。每个动词固定出 6 题（六个人称），总题数 = 词数 × 6。
+              </p>
             </div>
             <span class="hidden sm:inline-flex text-[11px] uppercase tracking-[0.2em] text-gray-400">Practice</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1.5">语言水平（CEFR）</label>
               <select v-model="settings.level"
@@ -132,6 +171,7 @@
                 <option v-for="l in ['A1','A2','B1','B2','C1','C2']" :value="l">{{ l }}</option>
               </select>
             </div>
+
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1.5">练习时态</label>
               <select v-model="settings.tense"
@@ -140,25 +180,39 @@
                 <option value="Passé Composé">Passé Composé（复合过去）</option>
                 <option value="Imparfait">Imparfait（未完成过去）</option>
                 <option value="Futur Simple">Futur Simple（简单将来）</option>
-                <option value="Subjonctif Présent">Subjonctif（虚拟式）</option>
-                <option value="Conditionnel Présent">Conditionnel（条件式）</option>
+                <option value="Subjonctif Présent">Subjonctif Présent（虚拟式现在）</option>
+                <option value="Conditionnel Présent">Conditionnel Présent（条件式现在）</option>
               </select>
             </div>
-          </div>
 
-          <div class="mb-6">
-            <label class="block text-xs font-medium text-gray-500 mb-1.5">动词来源</label>
-            <div class="flex flex-col sm:flex-row gap-3 text-sm">
-              <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border"
-                     :class="settings.mode==='library'?'border-emerald-400 bg-emerald-50/60 text-emerald-700':'border-gray-200 text-gray-600 hover:border-gray-300'">
-                <input type="radio" v-model="settings.mode" value="library" class="accent-emerald-600">
-                <span>我的词库随机</span>
-              </label>
-              <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border"
-                     :class="settings.mode==='random_ai'?'border-emerald-400 bg-emerald-50/60 text-emerald-700':'border-gray-200 text-gray-600 hover:border-gray-300'">
-                <input type="radio" v-model="settings.mode" value="random_ai" class="accent-emerald-600">
-                <span>AI 推荐高频词</span>
-              </label>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">题目来源</label>
+              <div class="flex flex-col gap-2 text-sm">
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" v-model="settings.mode" value="group" class="accent-emerald-600">
+                  <span>按分组</span>
+                </label>
+                <label class="inline-flex items-center gap-2">
+                  <input type="radio" v-model="settings.mode" value="all" class="accent-emerald-600">
+                  <span>全词库随机</span>
+                </label>
+              </div>
+            </div>
+
+            <div v-if="settings.mode==='group'">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">选择分组</label>
+              <select v-model="settings.groupName"
+                      class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option v-for="g in groupNames" :key="g" :value="g">{{ g }}（{{ groups[g].length }} 词）</option>
+              </select>
+              <p class="text-[11px] text-gray-400 mt-1">总题数 = 该分组词数 × 6</p>
+            </div>
+
+            <div v-if="settings.mode==='all'">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">随机抽取动词数量</label>
+              <input type="number" min="1" :max="allVerbs.length" v-model.number="settings.count"
+                     class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+              <p class="text-[11px] text-gray-400 mt-1">总题数 = 数量 × 6</p>
             </div>
           </div>
 
@@ -174,7 +228,10 @@
         <div v-else class="flex flex-col h-full justify-center mt-6 mb-8">
           <div class="bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-emerald-50 p-6 md:p-8 relative min-h-[360px] flex flex-col justify-between">
             <div class="flex justify-between text-xs text-gray-400 mb-6 border-b border-gray-100 pb-2">
-              <span class="inline-flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>{{ settings.tense }} · {{ settings.level }}</span></span>
+              <span class="inline-flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>{{ settings.tense }} · {{ currentCard.person }} · {{ settings.level }}</span>
+              </span>
               <span>题目 {{ currentIndex + 1 }} / {{ sessionCards.length }}</span>
             </div>
 
@@ -230,11 +287,10 @@
       <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 rounded-t-2xl">
         <div class="flex flex-col">
           <h3 class="text-lg font-semibold text-gray-900">变位表 · {{ modalVerb }}</h3>
-          <span class="text-[11px] text-gray-400 mt-0.5">Présent / Passé Composé / Imparfait / Futur Simple</span>
+          <span class="text-[11px] text-gray-400 mt-0.5">Présent / Passé Composé / Imparfait / Futur Simple / Subjonctif Présent / Conditionnel Présent</span>
         </div>
         <button @click="showModal=false" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-sm"></i></button>
       </div>
-      <!-- 直接用 v-html 输出真正的 HTML 表格 -->
       <div class="p-4 md:p-6 overflow-y-auto prose max-w-none text-sm" v-html="modalContent"></div>
     </div>
   </div>
@@ -250,98 +306,168 @@ createApp({
       apiKey: localStorage.getItem('gemini_api_key') || '',
       loading:false,
       loadingText:'',
+
+      // 分组词库
+      groups: {},            // { groupName: [verbs] }
+      currentGroup: '默认',
+      newGroupName: '',
       newVerb:'',
-      verbLibrary: JSON.parse(localStorage.getItem('verb_library')) || ['aimer','finir','être','avoir','aller','faire','pouvoir','savoir'],
+
+      // 练习
       isPracticeActive:false,
-      settings:{ level:'A2', tense:'Présent', mode:'library' },
+      settings:{
+        level:'A2',
+        tense:'Présent',     // 选定一个时态
+        mode:'group',        // 'group' | 'all'
+        groupName:'默认',
+        count:5              // 全库随机时抽取的动词数量
+      },
       sessionCards:[],
       currentIndex:0,
+
+      // 当前题状态
       userInput:'',
       feedback:{ status:'neutral', attempts:0, showAnswer:false },
+
+      // 模态框
       showModal:false,
       modalVerb:'',
       modalContent:''
     }
   },
   computed:{
+    groupNames(){ return Object.keys(this.groups); },
+    groupVerbs(){ return this.groups[this.currentGroup] || []; },
+    allVerbs(){
+      const s = new Set();
+      for(const g of Object.keys(this.groups)) (this.groups[g]||[]).forEach(v=>s.add(v));
+      return Array.from(s);
+    },
     currentCard(){
-      return this.sessionCards[this.currentIndex] || { prefix:'', suffix:'', verb:'', answer:'', translation:'' };
+      return this.sessionCards[this.currentIndex] || { prefix:'', suffix:'', verb:'', person:'', answer:'', translation:'', tense:this.settings.tense };
     }
   },
+  mounted(){
+    // 载入/迁移本地存储
+    const stored = localStorage.getItem('verb_groups');
+    if(stored){
+      this.groups = JSON.parse(stored);
+    }else{
+      const old = JSON.parse(localStorage.getItem('verb_library') || '[]');
+      this.groups = { '默认': (old.length? old : ['aimer','finir','être','avoir','aller','faire','pouvoir','savoir']) };
+      this.saveGroups();
+    }
+    if(!this.groups[this.currentGroup]) this.currentGroup = this.groupNames[0];
+    this.settings.groupName = this.currentGroup;
+  },
   methods:{
-    // 工具：清理代码围栏
-    stripCodeFences(str=''){
-      return String(str).replace(/^```[\s\S]*?\n/,'').replace(/```$/,'').trim();
-    },
-    // 工具：反转义 HTML 实体（把 &lt; 变回 <）
-    decodeHTMLEntities(str=''){
-      const ta = document.createElement('textarea');
-      ta.innerHTML = str;
-      return ta.value;
-    },
+    // —— 工具 ——
+    saveGroups(){ localStorage.setItem('verb_groups', JSON.stringify(this.groups)); },
+    stripCodeFences(str=''){ return String(str).replace(/^```[\s\S]*?\n/,'').replace(/```$/,'').trim(); },
+    decodeHTMLEntities(str=''){ const ta=document.createElement('textarea'); ta.innerHTML=str; return ta.value; },
 
+    // —— 设置 ——
     saveSettings(){
-      localStorage.setItem('gemini_api_key', this.apiKey.trim());
+      localStorage.setItem('gemini_api_key', (this.apiKey||'').trim());
       alert('API Key 已保存');
       this.currentView = 'library';
     },
+
+    // —— 词库管理（分组） ——
+    addGroup(){
+      const name = (this.newGroupName||'').trim();
+      if(!name){ alert('分组名不能为空'); return; }
+      if(this.groups[name]){ alert('已存在同名分组'); return; }
+      this.$set ? this.$set(this.groups, name, []) : (this.groups[name]=[]);
+      this.saveGroups();
+      this.currentGroup = name;
+      this.settings.groupName = name;
+      this.newGroupName = '';
+    },
     addVerb(){
-      const v = (this.newVerb || '').trim();
-      if(v && !this.verbLibrary.includes(v)){
-        this.verbLibrary.push(v);
-        this.saveLibrary();
-        this.newVerb='';
+      const v = (this.newVerb||'').trim();
+      if(!v) return;
+      const list = this.groups[this.currentGroup] || [];
+      if(!list.includes(v)){
+        list.push(v);
+        this.groups[this.currentGroup] = list;
+        this.saveGroups();
       }
+      this.newVerb='';
     },
     removeVerb(idx){
-      this.verbLibrary.splice(idx,1);
-      this.saveLibrary();
+      (this.groups[this.currentGroup]||[]).splice(idx,1);
+      this.saveGroups();
     },
-    saveLibrary(){
-      localStorage.setItem('verb_library', JSON.stringify(this.verbLibrary));
+    moveVerb(verb, targetGroup){
+      if(!targetGroup) return;
+      if(!this.groups[targetGroup]){ alert('目标分组不存在'); return; }
+      const list = this.groups[this.currentGroup]||[];
+      const i = list.indexOf(verb);
+      if(i>-1) list.splice(i,1);
+      if(!this.groups[targetGroup].includes(verb)) this.groups[targetGroup].push(verb);
+      this.saveGroups();
     },
 
-    // 生成练习
+    // —— 练习生成 —— 每个动词 × 六个人称
     async startPracticeSession(){
       if(!this.apiKey) return alert('请输入 API Key');
-      this.loading = true;
-      this.loadingText = '正在让 AI 生成题目...';
 
-      let targetVerbs=[];
-      if(this.settings.mode==='library'){
-        targetVerbs = this.verbLibrary.slice().sort(()=>0.5-Math.random()).slice(0,5);
+      // 选词
+      let targetVerbs = [];
+      if(this.settings.mode==='group'){
+        const g = this.settings.groupName;
+        targetVerbs = (this.groups[g] || []).slice();
+        if(!targetVerbs.length){ alert('该分组暂无动词'); return; }
       }else{
-        targetVerbs = ['AI_AUTO_GENERATE'];
+        const all = this.allVerbs.slice();
+        if(!all.length){ alert('词库为空'); return; }
+        const n = Math.max(1, Math.min(this.settings.count || 1, all.length));
+        targetVerbs = all.sort(()=>0.5-Math.random()).slice(0,n);
       }
 
+      const persons = ['Je','Tu','Il/Elle/On','Nous','Vous','Ils/Elles'];
+      const tense = this.settings.tense;
+      const total = targetVerbs.length * persons.length;
+
+      this.loading = true;
+      this.loadingText = `正在生成 ${total} 道题...`;
+
       const prompt = `
-You are a strict French teacher. Create a JSON array of 5 fill-in-the-blank exercises.
-Target Level: ${this.settings.level} (CEFR).
-Target Tense: ${this.settings.tense}.
-Verbs: ${this.settings.mode==='library' ? targetVerbs.join(', ') : 'Choose 5 high-frequency verbs appropriate for '+this.settings.level}.
+You are a strict French teacher. For EACH verb below, create EXACTLY SIX fill-in-the-blank exercises in the SINGLE tense "${tense}", one per person in:
+[Je, Tu, Il/Elle/On, Nous, Vous, Ils/Elles].
+Level: ${this.settings.level} (CEFR).
+Verbs: ${targetVerbs.join(', ')}.
 
-Strictly follow this JSON format (no markdown code blocks, just raw json):
-[
-  {
-    "verb": "infinitive_verb",
-    "answer": "conjugated_verb_only",
-    "prefix": "sentence_part_before_verb",
-    "suffix": "sentence_part_after_verb",
-    "translation": "chinese_translation_of_sentence"
-  }
-]
+Return a RAW JSON array with EXACTLY ${total} objects (no markdown fences). Each object MUST follow:
+{
+  "verb": "<infinitive>",
+  "tense": "${tense}",
+  "person": "<Je|Tu|Il/Elle/On|Nous|Vous|Ils/Elles>",
+  "answer": "<conjugated_verb_only>",
+  "prefix": "<sentence_part_before_verb_including_correct_subject_and_elision>",
+  "suffix": "<sentence_part_after_verb>",
+  "translation": "<Chinese translation>"
+}
 
-Requirements:
-1. The 'answer' must be the strictly correct conjugation of the verb in the specified tense.
-2. The sentence complexity must match ${this.settings.level}.
-3. Do not include the subject in the 'answer' unless it's an impersonal verb that requires it, usually the subject is in the prefix.
-4. Ensure correct elision in prefix (e.g., "J'" instead of "Je" if answer starts with vowel).
+Rules:
+1) One and only one exercise per (verb, person) pair in "${tense}".
+2) 'answer' is ONLY the correctly conjugated finite verb for that person and tense (no subject, no objects). 
+   For compound tenses like "Passé Composé", the blank is the correctly conjugated auxiliary only; keep the past participle in prefix/suffix.
+3) Put the correct subject (with elision like "J'") in 'prefix'.
+4) Difficulty should match ${this.settings.level}.
       `;
 
       try{
         const result = await this.callGemini(prompt);
-        const cleanJson = this.stripCodeFences(result);
-        this.sessionCards = JSON.parse(cleanJson);
+        const clean = this.stripCodeFences(result);
+        const arr = JSON.parse(clean);
+
+        if(!Array.isArray(arr) || arr.length !== total){
+          console.warn('AI 返回数量与预期不符，收到：', arr?.length, '预期：', total);
+        }
+        // 打乱顺序
+        this.sessionCards = (arr || []).sort(()=>0.5-Math.random());
         this.isPracticeActive = true;
         this.currentIndex = 0;
         this.resetCardState();
@@ -353,7 +479,7 @@ Requirements:
       }
     },
 
-    // 显示变位表
+    // —— 变位表 ——（HTML 反转义 + 直接 v-html 渲染）
     async showConjugationTable(verb){
       this.modalVerb = verb;
       this.showModal = true;
@@ -363,16 +489,15 @@ Requirements:
 
       const prompt = `
 Generate a clear, formatted HTML table of the conjugation for the French verb "${verb}".
-Include columns for these tenses: Présent, Passé Composé, Imparfait, Futur Simple.
-Include rows for all persons (Je, Tu, Il/Elle, Nous, Vous, Ils/Elles).
+Include columns for: Présent, Passé Composé, Imparfait, Futur Simple.
+Include rows for: Je, Tu, Il/Elle, Nous, Vous, Ils/Elles.
 Use Tailwind CSS classes for styling (simple table). Output only the HTML table code.
       `;
 
       try{
         const raw = await this.callGemini(prompt);
         const noFence = this.stripCodeFences(raw);
-        const decoded = this.decodeHTMLEntities(noFence); // 把 &lt;table&gt; 变回 <table>
-        // 直接用 v-html 渲染真正的 HTML
+        const decoded = this.decodeHTMLEntities(noFence);
         this.modalContent = decoded;
       }catch(e){
         this.modalContent = '加载失败: ' + e.message;
@@ -381,23 +506,17 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       }
     },
 
-    // 通用调用：Gemini 2.0（header 传 X-goog-api-key）
+    // —— 通用 Gemini 2.0 调用 ——
     async callGemini(text){
       const key = (this.apiKey || '').trim();
-      if(!key) throw new Error('API Key 为空，请先在“设置”页保存有效的 Key。');
+      if(!key) throw new Error('API Key 为空。');
 
       const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
-      const payload = {
-        contents: [{ parts: [{ text }] }]
-      };
+      const payload = { contents: [{ parts: [{ text }] }] };
 
       const resp = await fetch(url,{
         method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'X-goog-api-key': key
-        },
+        headers:{ 'Content-Type':'application/json', 'X-goog-api-key': key },
         body: JSON.stringify(payload)
       });
 
@@ -412,7 +531,7 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       return out;
     },
 
-    // 练习逻辑
+    // —— 练习逻辑 ——
     resetCardState(){
       this.userInput='';
       this.feedback={ status:'neutral', attempts:0, showAnswer:false };
