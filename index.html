@@ -494,21 +494,59 @@
                 }
             },
 
-            // --- 通用 API 调用函数 ---
-            async callGemini(text) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: text }] }]
-                    })
-                });
-                
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
-            },
+// --- 通用 API 调用函数 ---
+async callGemini(text) {
+    // 1. 读取并清理 API Key
+    const key = (this.apiKey || '').trim();
+    if (!key) {
+        throw new Error('API Key 为空，请先在“设置”页保存有效的 Key。');
+    }
+
+    // 2. 和你 curl 一模一样的 endpoint（模型 + 路径）
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+    const payload = {
+        contents: [
+            {
+                parts: [
+                    { text: text }
+                ]
+            }
+        ]
+    };
+
+    // 3. 和 curl 一样，用 X-goog-api-key 头，不用 ?key=
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': key
+        },
+        body: JSON.stringify(payload)
+    });
+
+    // 4. 把原始返回先读出来，方便看错误信息
+    const raw = await response.text();
+
+    if (!response.ok) {
+        // 这里会带上服务器返回的完整 JSON，出错时 alert 里能看到原因
+        throw new Error(`API Error ${response.status}: ${raw}`);
+    }
+
+    let data;
+    try {
+        data = JSON.parse(raw);
+    } catch (e) {
+        throw new Error('API 返回的不是合法 JSON：' + raw);
+    }
+
+    const textPart = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textPart) {
+        throw new Error('API 返回结构中没有 text 字段：' + raw);
+    }
+
+    return textPart;
+},
 
             // --- 练习逻辑 ---
             resetCardState() {
