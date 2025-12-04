@@ -484,7 +484,7 @@
 
                 try {
                     const html = await this.callGemini(prompt);
-                    const md = window.markdownit();
+                    const md = window.markdownit({ html: true });
                     this.modalContent = md.render(html);
                 } catch (e) {
                     this.modalContent = "加载失败: " + e.message;
