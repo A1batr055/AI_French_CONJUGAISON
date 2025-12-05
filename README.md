@@ -1,4 +1,4 @@
-# AI_French_CONJUGASION
+# AI_French_CONJUGAISON
 AI 法语变位大师（Gemini 版）
 直链：https://a1batr055.github.io/AI_French_CONJUGAISON/
 
