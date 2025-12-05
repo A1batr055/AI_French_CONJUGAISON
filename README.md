@@ -1,6 +1,6 @@
 # AI_French_CONJUGASION
 AI 法语变位大师（Gemini 版）
-直链：[https://a1batr055.github.io/AI_French_CONJUGASION/](https://a1batr055.github.io/AI_French_CONJUGAISON/)
+直链：https://a1batr055.github.io/AI_French_CONJUGAISON/
 
 > **声明**：本仓库的 `index.html` 及本 README 由 AI 生成。  
 > **模型限定**：仅使用 Google Gemini「免费」模型 `gemini-2.0-flash`。
