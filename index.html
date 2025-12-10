@@ -19,7 +19,6 @@
     [v-cloak]{display:none}
     .loader{border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-    /* OpenRouter 说明卡片在大屏的排版优化 */
     .or-help{margin-top:.5rem;padding:.9rem;border:1px dashed #cbd5e1;border-radius:.7rem;font-size:.92rem;line-height:1.55;background:rgba(236,253,245,.55)}
     .or-help strong{font-weight:650}
     @media (min-width:1024px){
@@ -27,7 +26,6 @@
       .or-help p{margin:.25rem 0}
       .or-help code{padding:.05rem .35rem;border-radius:.35rem;background:#fff}
     }
-    /* 底部 sticky 操作条（词库页） */
     .sticky-bar{
       position: sticky; bottom: 0; z-index: 15;
       background: linear-gradient(180deg, rgba(249,250,251,0) 0%, rgba(249,250,251,.92) 38%, rgba(249,250,251,1) 100%);
@@ -100,8 +98,9 @@
           <div v-if="llm.provider!=='custom'">
             <label class="block text-xs font-medium text-gray-500 mb-1.5">模型</label>
             <select v-model="modelChoice" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
-              <!-- OpenRouter：免费精选 + 常用付费 -->
-              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 免费（推荐）">
+              <!-- OpenRouter：自动 + 免费精选 + 常用付费 -->
+              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 自动/免费">
+                <option value="__auto__">自动（免费优先）</option>
                 <option v-for="m in openrouterFree" :key="'f-'+m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
               <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 常用付费（需余额）">
@@ -152,13 +151,12 @@
             <input type="password" v-model="llm.keys.openrouter" placeholder="在此粘贴 OpenRouter 或自定义服务的 Key"
                    class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
 
-            <!-- OpenRouter 简介卡片（重排版 + 追加提示） -->
             <div v-if="llm.provider==='openrouter'" class="or-help text-emerald-900">
               <p><strong>OpenRouter 是什么？</strong> 一把 Key 聚合调用 OpenAI / Gemini / DeepSeek / Mistral 等。</p>
               <p><strong>免费怎么用？</strong> 选下拉里的 <code>:free</code> 模型（配额有限）。</p>
               <p><strong>极简上手：</strong> 1) 注册 openrouter.ai → 2) 创建 API Key → 3) 在此粘贴 → 4) 选模型并保存。</p>
               <p class="text-[12px] mt-1">默认速率约 20 次/分钟；余额 &lt; $10 时每天≈50 次，余额 ≥ $10 时每天≈1000 次。</p>
-              <p class="text-[12px] mt-1">若遇 <code>429</code>/<code>404</code>，请更换模型或查阅官方文档自行配置；模型 ID 不要附加多余字符以免解析失败。</p>
+              <p class="text-[12px] mt-1">若遇 <code>429</code>/<code>404</code>，会自动尝试下一个免费模型；仍失败请更换模型或查官方文档。模型 ID 不要乱加字符以免解析失败。</p>
               <p class="mt-1"><a href="https://openrouter.ai/keys" target="_blank" class="underline text-emerald-700">获取 OpenRouter API Key</a></p>
             </div>
           </div>
@@ -250,7 +248,6 @@
           </div>
         </div>
 
-        <!-- 底部 sticky 开始练习条 -->
         <div class="sticky-bar">
           <div class="max-w-4xl mx-auto flex items-center justify-between gap-3 px-1">
             <div class="text-[12px] text-gray-500">
@@ -390,7 +387,7 @@
     </div>
   </div>
 
-  <!-- 错误提示（简洁弹窗） -->
+  <!-- 错误提示 -->
   <div v-if="err.show" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50" @click.self="err.show=false">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-[92%] p-5">
       <div class="flex items-start gap-3">
@@ -415,7 +412,7 @@ createApp({
   data(){
     const defaultLLM = {
       provider:'openrouter',
-      model:'openai/gpt-oss-20b:free', // 默认免费模型
+      model:'__auto__', // 自动路由（免费优先）
       baseUrl:'',
       keys:{ openrouter:'', openai:'', gemini:'', deepseek:'' }
     };
@@ -431,20 +428,27 @@ createApp({
       llm,
       // OpenRouter 精选（免费/付费）
       openrouterFree: [
-        { id: 'openai/gpt-oss-20b:free',         label: 'OpenAI · GPT-OSS-20B（免费）' },
-        { id: 'openai/gpt-oss-120b:free',        label: 'OpenAI · GPT-OSS-120B（免费）' },
-        { id: 'deepseek/deepseek-chat:free',     label: 'DeepSeek · V3 Chat（免费）' },
-        { id: 'mistralai/mistral-small:free',    label: 'Mistral · Small（免费）' },
-        { id: 'google/gemini-2.0-flash-exp:free', label: 'Google · Gemini 2.0 Flash Experimental（免费）' }
+        { id: 'openai/gpt-oss-20b:free',   label: 'OpenAI · GPT-OSS-20B（免费）' },
+        { id: 'openai/gpt-oss-120b:free',  label: 'OpenAI · GPT-OSS-120B（免费）' },
+        { id: 'deepseek/deepseek-chat:free', label: 'DeepSeek · V3 Chat（免费）' },
+        { id: 'mistralai/mistral-small:free', label: 'Mistral · Small（免费）' }
+        // 注：Gemini 免费实验版不放默认链路，手动需要可自行添加
       ],
       openrouterPaid: [
-        { id: 'openai/gpt-4o-mini',              label: 'OpenAI · GPT-4o-mini（推荐）' },
-        { id: 'google/gemini-2.0-flash',         label: 'Google · Gemini 2.0 Flash' },
-        { id: 'deepseek/deepseek-chat',          label: 'DeepSeek · V3 Chat' },
-        { id: 'mistralai/mistral-small',         label: 'Mistral · Small' }
+        { id: 'openai/gpt-4o-mini',        label: 'OpenAI · GPT-4o-mini（推荐）' },
+        { id: 'google/gemini-2.0-flash',   label: 'Google · Gemini 2.0 Flash' },
+        { id: 'deepseek/deepseek-chat',    label: 'DeepSeek · V3 Chat' },
+        { id: 'mistralai/mistral-small',   label: 'Mistral · Small' }
+      ],
+      // 自动路由优先级（免费）
+      openrouterAutoList: [
+        'openai/gpt-oss-20b:free',
+        'openai/gpt-oss-120b:free',
+        'deepseek/deepseek-chat:free',
+        'mistralai/mistral-small:free'
       ],
 
-      modelChoice: llm.model || 'openai/gpt-oss-20b:free',
+      modelChoice: llm.model || '__auto__',
       customModel: llm.model || '',
 
       // 词库
@@ -482,7 +486,7 @@ createApp({
     'llm.provider':{
       handler(){
         if(this.llm.provider==='openrouter'){
-          this.modelChoice = 'openai/gpt-oss-20b:free'; // 默认使用免费且相对稳定的
+          this.modelChoice = '__auto__';
         }else if(this.llm.provider==='openai'){
           this.modelChoice = 'gpt-4o-mini';
         }else if(this.llm.provider==='gemini'){
@@ -521,7 +525,7 @@ createApp({
     const list = [
       ...this.openrouterFree.map(x=>x.id),
       ...this.openrouterPaid.map(x=>x.id),
-      'gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','deepseek-chat'
+      '__auto__','gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','deepseek-chat'
     ];
     this.modelChoice = list.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : this.modelChoice);
     if(this.modelChoice==='__custom__') this.customModel = this.llm.model || '';
@@ -607,7 +611,7 @@ Include rows for: Je, Tu, Il/Elle, Nous, Vous, Ils/Elles.
 Use Tailwind CSS classes for styling (simple table). Output only the HTML table code.`;
     },
 
-    // 文本抽取（增强：兼容 content 数组等新格式）
+    // 文本抽取（兼容 content 为数组）
     extractText(data){
       const first = data?.choices?.[0] || {};
       const fromArray = (c) => Array.isArray(c)
@@ -650,14 +654,14 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       return `调用失败（HTTP ${status || '未知'}）。`;
     },
 
-    // 多提供商调用
+    // ===== 多提供商调用（含 OpenRouter 自动路由） =====
     async callLLM({system=null, user, stream=false}){
       const provider = this.llm.provider;
       const model = (this.llm.model||'').trim();
       const key = this.activeApiKey;
       if(!key) throw new Error('API Key 为空。');
 
-      // Gemini
+      // Gemini（单独协议）
       if(provider==='gemini'){
         const useModel = model || 'gemini-2.0-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useModel)}:generateContent`;
@@ -671,7 +675,7 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         return out;
       }
 
-      // OpenAI / OpenRouter / DeepSeek / 自定义：统一 chat-completions
+      // 通用 chat-completions
       let base = '';
       const headers = { 'Content-Type':'application/json', 'Authorization': `Bearer ${key}` };
       if(provider==='openai') base = 'https://api.openai.com/v1/chat/completions';
@@ -682,39 +686,57 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         if(!base) throw new Error('自定义 Base URL 为空');
       }
 
-      const useModel =
-        model || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-3.5-turbo'));
-
-      const payload = {
-        model: useModel,
-        messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
-        stream: !!stream,
-        max_tokens: 4096,
-        temperature: 0.2
+      const doOnce = async (modelId)=>{
+        const payload = {
+          model: modelId,
+          messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
+          stream: !!stream,
+          max_tokens: 4096,
+          temperature: 0.2,
+          response_format: { type: 'text' }
+        };
+        const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
+        const raw = await resp.text();
+        if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+        let data;
+        try { data = JSON.parse(raw); } catch(e){ throw new Error('服务端返回非 JSON。'); }
+        if(data?.error) throw new Error(this.friendlyError(resp.status, data.error?.message || ''));
+        const out = this.extractText(data);
+        if(!out) throw new Error('模型无返回文本。');
+        return out;
       };
-      // 强制文本返回，避免路由到非文本结构
-      payload.response_format = { type: 'text' };
 
-      const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
-      const raw = await resp.text();
-      if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+      // OpenRouter 自动路由（免费优先）
+      if(provider==='openrouter' && (model==='__auto__' || !model)){
+        const chain = this.openrouterAutoList.slice();
+        const errs = [];
+        for(let i=0;i<chain.length;i++){
+          try{
+            return await doOnce(chain[i]);
+          }catch(e){
+            errs.push(`${chain[i]} → ${e.message}`);
+            // 429/404/空响应才继续尝试
+            const m = (e.message||'').toLowerCase();
+            if(!(m.includes('429') || m.includes('404') || m.includes('无返回') || m.includes('限流') || m.includes('quota'))) {
+              // 其它错误就直接抛
+              throw new Error(`自动路由中断：${e.message}`);
+            }
+            await new Promise(r=>setTimeout(r, 500)); // 轻微退避
+          }
+        }
+        throw new Error(`所有免费模型不可用：\n${errs.join('\n')}`);
+      }
 
-      let data;
-      try { data = JSON.parse(raw); }
-      catch(e){ console.error('非JSON返回：', raw); throw new Error('服务端返回非 JSON。'); }
-
-      if(data?.error){ console.error('API error payload:', data.error); throw new Error(this.friendlyError(resp.status, data.error?.message || '')); }
-
-      const out = this.extractText(data);
-      if(!out) throw new Error('模型无返回文本。');
-      return out;
+      // 非自动：按用户选择的模型直连
+      const useModel =
+        model || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-oss-20b:free'));
+      return await doOnce(useModel);
     },
 
     // 练习（分批生成 + 自适应回退；不限制句子长度）
     async startPracticeSession(){
       if(!this.activeApiKey) return this.showError('请输入 API Key');
 
-      // 1) 准备动词列表
       let targetVerbs = [];
       if(this.settings.mode==='group'){
         const g = this.settings.groupName;
@@ -727,7 +749,6 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         targetVerbs = all.sort(()=>0.5-Math.random()).slice(0,n);
       }
 
-      // 2) 分批：先 4 个/批，失败自动降到 3→2→1
       const persons = ['Je','Tu','Il/Elle/On','Nous','Vous','Ils/Elles'];
       const expectedTotal = targetVerbs.length * persons.length;
       const batches = (arr, size)=> arr.reduce((acc,_,i)=> (i%size? acc[acc.length-1].push(arr[i]) : acc.push([arr[i]]), acc), []);
@@ -752,9 +773,6 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         const raw = await this.callLLM({ user: prompt });
         const arr = safeJSON(raw);
         if(!arr.length) throw new Error('模型无返回文本或返回为空。');
-        if(arr.length !== total){
-          console.warn('Batch got', arr.length, 'expected', total);
-        }
         return arr;
       };
 
@@ -772,9 +790,8 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
             try{
               const arr = await tryOnce(gs[i]);
               results.push(...arr);
-              await sleep(500); // 免费模型节流
+              await sleep(500);
             }catch(e){
-              console.warn('batch failed @size', batchSize, e.message);
               ok = false;
               break;
             }
@@ -787,7 +804,6 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
 
         if(!results.length) throw new Error('模型无返回文本。');
 
-        // 合并、乱序
         this.sessionCards = results.sort(()=>0.5-Math.random());
         if(this.sessionCards.length < expectedTotal){
           console.warn(`仅生成 ${this.sessionCards.length}/${expectedTotal} 题，将按已生成题目开始练习。`);
@@ -795,7 +811,6 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
 
         this.isPracticeActive = true; this.currentIndex = 0; this.resetCardState();
       }catch(e){
-        console.error(e);
         this.showError(e.message || '生成失败');
       }finally{
         this.loading = false; this.loadingText = '';
@@ -810,7 +825,7 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         const raw = await this.callLLM({ user: this.buildTablePrompt(verb) });
         const noFence = this.stripCodeFences(raw);
         this.modalContent = this.decodeHTMLEntities(noFence);
-      }catch(e){ console.error(e); this.modalContent = '<span class="text-red-600">加载失败：'+ (e.message||'') +'</span>'; }
+      }catch(e){ this.modalContent = '<span class="text-red-600">加载失败：'+ (e.message||'') +'</span>'; }
       finally{ this.loading = false; }
     },
 
