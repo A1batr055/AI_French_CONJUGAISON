@@ -37,7 +37,7 @@
 <body class="text-gray-800 min-h-screen flex flex-col">
 <div id="app" v-cloak class="flex-1 flex flex-col">
 
-  <nav class="bg-white/80 backdrop-blur border-b border-emerald-50 py-3 shadow-sm z-10">
+  <nav class="bg-white backdrop-blur border-b border-emerald-50 py-3 shadow-sm z-10">
     <div class="max-w-5xl mx-auto flex justify-between items-center px-3 md:px-0">
       <h1 class="text-base md:text-lg font-semibold tracking-tight flex items-center gap-2 text-emerald-700">
         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700">
@@ -74,7 +74,7 @@
 
       <!-- 设置 -->
       <div v-if="currentView==='settings'"
-           class="max-w-2xl mx-auto bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8 flex flex-col gap-4">
+           class="max-w-2xl mx-auto bg-white backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8 flex flex-col gap-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-xl font-semibold text-gray-900 tracking-tight">系统设置</h2>
           <span class="text-[11px] uppercase tracking-[0.16em] text-gray-400">LLM Providers</span>
@@ -188,7 +188,7 @@
 
       <!-- 词库 -->
       <div v-if="currentView==='library'" class="max-w-4xl mx-auto flex flex-col gap-6">
-        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5 mt-4">
+        <div class="bg-white backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5 mt-4">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div>
               <label class="block text-xs font-medium text-gray-500 mb-1.5">当前分组</label>
@@ -213,7 +213,7 @@
           </div>
         </div>
 
-        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5">
+        <div class="bg-white backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5">
           <div class="flex items-baseline justify-between">
             <h2 class="text-lg font-semibold text-gray-900">分组词库 · {{ currentGroup }}</h2>
             <span class="text-[11px] text-gray-400">点击卡片查看变位，可移动到其它分组</span>
@@ -229,7 +229,7 @@
 
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-6">
           <div v-for="(v, idx) in groupVerbs" :key="v"
-               class="bg白/70 backdrop-blur border border-gray-100 hover:border-emerald-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all">
+               class="bg白 backdrop-blur border border-gray-100 hover:border-emerald-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all">
             <div class="flex items-center justify-between gap-2">
               <button class="flex-1 text-left" @click="showConjugationTable(v)">
                 <span class="block font-semibold text-gray-800 text-sm truncate">{{ v }}</span>
@@ -263,7 +263,7 @@
 
       <!-- 练习 -->
       <div v-if="currentView==='practice'" class="max-w-3xl mx-auto">
-        <div v-if="!isPracticeActive" class="bg白/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8">
+        <div v-if="!isPracticeActive" class="bg白 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8">
           <div class="flex items-center justify-between mb-6">
             <div>
               <h2 class="text-xl font-semibold text-gray-900 tracking-tight">生成练习配置</h2>
@@ -322,7 +322,7 @@
 
         <!-- 练习卡片 -->
         <div v-else class="flex flex-col justify-center mt-6 mb-8">
-          <div class="bg白/90 backdrop-blur rounded-2xl shadow-lg border border-emerald-50 p-6 md:p-8 relative min-h-[360px] flex flex-col justify-between">
+          <div class="bg白 backdrop-blur rounded-2xl shadow-lg border border-emerald-50 p-6 md:p-8 relative min-h-[360px] flex flex-col justify-between">
             <div class="flex justify-between text-xs text灰-400 mb-6 border-b border灰-100 pb-2">
               <span class="inline-flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
