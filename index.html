@@ -19,6 +19,7 @@
     [v-cloak]{display:none}
     .loader{border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite}
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    /* OpenRouter 说明卡片在大屏的排版优化 */
     .or-help{margin-top:.5rem;padding:.9rem;border:1px dashed #cbd5e1;border-radius:.7rem;font-size:.92rem;line-height:1.55;background:rgba(236,253,245,.55)}
     .or-help strong{font-weight:650}
     @media (min-width:1024px){
@@ -26,6 +27,7 @@
       .or-help p{margin:.25rem 0}
       .or-help code{padding:.05rem .35rem;border-radius:.35rem;background:#fff}
     }
+    /* 底部 sticky 操作条（词库页） */
     .sticky-bar{
       position: sticky; bottom: 0; z-index: 15;
       background: linear-gradient(180deg, rgba(249,250,251,0) 0%, rgba(249,250,251,.92) 38%, rgba(249,250,251,1) 100%);
@@ -94,48 +96,38 @@
             </select>
           </div>
 
-          <!-- 模型选择（OpenRouter 精简） -->
+          <!-- 模型选择 -->
           <div v-if="llm.provider!=='custom'">
             <label class="block text-xs font-medium text-gray-500 mb-1.5">模型</label>
             <select v-model="modelChoice" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
-              <!-- OpenRouter：自动路由 + 免费默认 -->
-              <template v-if="llm.provider==='openrouter'">
-                <optgroup label="OpenRouter 自动（推荐）">
-                  <option value="openrouter/auto">openrouter/auto（自动路由）</option>
-                </optgroup>
-                <optgroup label="OpenRouter 免费（默认）">
-                  <option value="openai/gpt-oss-20b:free">OpenAI · GPT-OSS-20B（免费）</option>
-                </optgroup>
-                <optgroup label="OpenRouter 付费示例">
-                  <option value="openai/gpt-4o-mini">OpenAI · GPT-4o-mini</option>
-                </optgroup>
-              </template>
+              <!-- OpenRouter：免费精选 + 常用付费 -->
+              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 免费（推荐）">
+                <option v-for="m in openrouterFree" :key="'f-'+m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
+              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 常用付费（需余额）">
+                <option v-for="m in openrouterPaid" :key="'p-'+m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
 
               <!-- 其它提供商：简洁推荐 -->
               <optgroup v-if="llm.provider==='openai'" label="推荐">
                 <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
                 <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
               </optgroup>
               <optgroup v-if="llm.provider==='gemini'" label="推荐">
                 <option value="gemini-2.0-flash">gemini-2.0-flash</option>
                 <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               </optgroup>
               <optgroup v-if="llm.provider==='deepseek'" label="推荐">
                 <option value="deepseek-chat">deepseek-chat</option>
+                <option value="deepseek-reasoner">deepseek-reasoner</option>
               </optgroup>
 
               <optgroup label="高级">
                 <option value="__custom__">自定义模型 ID…</option>
               </optgroup>
             </select>
-
-            <!-- 自动路由优先免费（控制 payload.models） -->
-            <div v-if="llm.provider==='openrouter'" class="mt-2 text-xs text-gray-600">
-              <label class="inline-flex items-center gap-2">
-                <input type="checkbox" v-model="llm.orPreferFree" class="accent-emerald-600">
-                <span>自动路由时优先候选免费模型</span>
-              </label>
-            </div>
           </div>
 
           <!-- 自定义 Base URL -->
@@ -148,7 +140,7 @@
           <!-- 自定义模型 ID -->
           <div v-if="modelChoice==='__custom__'">
             <label class="block text-xs font-medium text-gray-500 mb-1.5">自定义模型 ID</label>
-            <input v-model="customModel" placeholder="如：openai/gpt-4o-mini 或 openai/gpt-oss-20b:free"
+            <input v-model="customModel" placeholder="如：openai/gpt-4o-mini 或 deepseek/deepseek-chat:free"
                    class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
           </div>
         </div>
@@ -160,14 +152,14 @@
             <input type="password" v-model="llm.keys.openrouter" placeholder="在此粘贴 OpenRouter 或自定义服务的 Key"
                    class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
 
-            <!-- OpenRouter 简介卡片（底部加注释） -->
+            <!-- OpenRouter 简介卡片（重排版 + 追加提示） -->
             <div v-if="llm.provider==='openrouter'" class="or-help text-emerald-900">
               <p><strong>OpenRouter 是什么？</strong> 一把 Key 聚合调用 OpenAI / Gemini / DeepSeek / Mistral 等。</p>
-              <p><strong>怎么免费？</strong> 选带 <code>:free</code> 的模型；或用 <code>openrouter/auto</code> 并勾选“优先免费”。</p>
+              <p><strong>免费怎么用？</strong> 选下拉里的 <code>:free</code> 模型（配额有限）。</p>
               <p><strong>极简上手：</strong> 1) 注册 openrouter.ai → 2) 创建 API Key → 3) 在此粘贴 → 4) 选模型并保存。</p>
-              <p class="text-[12px] mt-1">常见限流：约 20 次/分钟；余额 &lt; $10 每日 ~50 次，≥$10 每日 ~1000 次。</p>
-              <p class="text-[12px] mt-1 text-emerald-800"><strong>提示：</strong> 报错 <code>429/404</code> 请更换模型或查阅官方文档自行配置；模型 ID 需精确填写，勿添加多余字符。</p>
-              <p class="mt-1"><a href="https://openrouter.ai/keys" target="_blank" class="underline text-emerald-700">获取 OpenRouter API Key</a> ｜ <a href="https://openrouter.ai/docs" target="_blank" class="underline text-emerald-700">官方文档</a></p>
+              <p class="text-[12px] mt-1">默认速率约 20 次/分钟；余额 &lt; $10 时每天≈50 次，余额 ≥ $10 时每天≈1000 次。</p>
+              <p class="text-[12px] mt-1">若遇 <code>429</code>/<code>404</code>，请更换模型或查阅官方文档自行配置；模型 ID 不要附加多余字符以免解析失败。</p>
+              <p class="mt-1"><a href="https://openrouter.ai/keys" target="_blank" class="underline text-emerald-700">获取 OpenRouter API Key</a></p>
             </div>
           </div>
 
@@ -423,9 +415,8 @@ createApp({
   data(){
     const defaultLLM = {
       provider:'openrouter',
-      model:'openai/gpt-oss-20b:free',   // 手动默认：免费且稳定
+      model:'openai/gpt-oss-20b:free', // 默认免费模型
       baseUrl:'',
-      orPreferFree:true,                 // openrouter/auto 时优先免费候选
       keys:{ openrouter:'', openai:'', gemini:'', deepseek:'' }
     };
     let storedLLM = null;
@@ -438,6 +429,21 @@ createApp({
       loading:false, loadingText:'',
 
       llm,
+      // OpenRouter 精选（免费/付费）
+      openrouterFree: [
+        { id: 'openai/gpt-oss-20b:free',         label: 'OpenAI · GPT-OSS-20B（免费）' },
+        { id: 'openai/gpt-oss-120b:free',        label: 'OpenAI · GPT-OSS-120B（免费）' },
+        { id: 'deepseek/deepseek-chat:free',     label: 'DeepSeek · V3 Chat（免费）' },
+        { id: 'mistralai/mistral-small:free',    label: 'Mistral · Small（免费）' },
+        { id: 'google/gemini-2.0-flash-exp:free', label: 'Google · Gemini 2.0 Flash Experimental（免费）' }
+      ],
+      openrouterPaid: [
+        { id: 'openai/gpt-4o-mini',              label: 'OpenAI · GPT-4o-mini（推荐）' },
+        { id: 'google/gemini-2.0-flash',         label: 'Google · Gemini 2.0 Flash' },
+        { id: 'deepseek/deepseek-chat',          label: 'DeepSeek · V3 Chat' },
+        { id: 'mistralai/mistral-small',         label: 'Mistral · Small' }
+      ],
+
       modelChoice: llm.model || 'openai/gpt-oss-20b:free',
       customModel: llm.model || '',
 
@@ -476,8 +482,7 @@ createApp({
     'llm.provider':{
       handler(){
         if(this.llm.provider==='openrouter'){
-          // 默认给免费稳定项；也允许选择 auto
-          this.modelChoice = this.modelChoice?.startsWith('openrouter/') ? this.modelChoice : 'openai/gpt-oss-20b:free';
+          this.modelChoice = 'openai/gpt-oss-20b:free'; // 默认使用免费且相对稳定的
         }else if(this.llm.provider==='openai'){
           this.modelChoice = 'gpt-4o-mini';
         }else if(this.llm.provider==='gemini'){
@@ -513,12 +518,12 @@ createApp({
     if(!this.groups[this.currentGroup]) this.currentGroup = this.groupNames[0];
     this.settings.groupName = this.currentGroup;
 
-    // 保证 modelChoice 与 llm.model 同步且合法
-    const allowed = [
-      'openrouter/auto','openai/gpt-oss-20b:free','openai/gpt-4o-mini',
-      'gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','gemini-1.5-pro','deepseek-chat'
+    const list = [
+      ...this.openrouterFree.map(x=>x.id),
+      ...this.openrouterPaid.map(x=>x.id),
+      'gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','deepseek-chat'
     ];
-    this.modelChoice = allowed.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : 'openai/gpt-oss-20b:free');
+    this.modelChoice = list.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : this.modelChoice);
     if(this.modelChoice==='__custom__') this.customModel = this.llm.model || '';
   },
   methods:{
@@ -602,20 +607,33 @@ Include rows for: Je, Tu, Il/Elle, Nous, Vous, Ils/Elles.
 Use Tailwind CSS classes for styling (simple table). Output only the HTML table code.`;
     },
 
-    // 文本抽取
+    // 文本抽取（增强：兼容 content 数组等新格式）
     extractText(data){
+      const first = data?.choices?.[0] || {};
+      const fromArray = (c) => Array.isArray(c)
+        ? c.map(p => (typeof p?.text === 'string' ? p.text : (typeof p === 'string' ? p : ''))).filter(Boolean).join('\n')
+        : '';
+
       let t =
-        data?.choices?.[0]?.message?.content ??
-        data?.choices?.[0]?.delta?.content ??
-        data?.choices?.[0]?.text ??
-        data?.output_text ??
-        data?.response?.output_text ??
-        data?.choices?.[0]?.message?.reasoning ??
+        fromArray(first?.message?.content) ||
+        first?.message?.content ||
+        first?.delta?.content ||
+        first?.text ||
+        data?.output_text ||
+        data?.response?.output_text ||
+        first?.message?.reasoning ||
+        first?.message?.refusal ||
         '';
+
       if(!t && Array.isArray(data?.choices)){
-        t = data.choices.map(c => c?.message?.content || c?.delta?.content || c?.text).filter(Boolean).join('\n');
+        t = data.choices.map(c =>
+          fromArray(c?.message?.content) ||
+          c?.message?.content ||
+          c?.delta?.content ||
+          c?.text || ''
+        ).filter(Boolean).join('\n');
       }
-      return (t || '').toString().trim();
+      return String(t || '').trim();
     },
 
     // 友好错误
@@ -623,7 +641,7 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       const txt = raw || '';
       const low = txt.toLowerCase();
       if(status === 401 || low.includes('unauthorized')) return 'Key 无效或没有权限（401）。请检查 API Key。';
-      if(status === 404 || low.includes('model_not_found') || low.includes('no endpoints')) return '模型名不被支持或已下线（404）。请更换模型 ID。';
+      if(status === 404 || low.includes('model_not_found')) return '模型名不被支持（404）。请更换模型 ID。';
       if(status === 429 || low.includes('rate') || low.includes('quota') || low.includes('exceed')){
         return '请求被限流或免费额度用完（429 / Quota）。请稍后重试或换别的模型/Key。';
       }
@@ -664,8 +682,9 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         if(!base) throw new Error('自定义 Base URL 为空');
       }
 
-      // 模型与自动路由
-      let useModel = model;
+      const useModel =
+        model || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-3.5-turbo'));
+
       const payload = {
         model: useModel,
         messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
@@ -673,18 +692,8 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         max_tokens: 4096,
         temperature: 0.2
       };
-
-      // 如果选择 openrouter/auto，且勾选“优先免费”，则限制候选为稳定免费模型
-      if(provider==='openrouter' && model === 'openrouter/auto' && this.llm.orPreferFree){
-        payload.models = ['openai/gpt-oss-20b:free']; // 精确 ID，避免解析错误
-      }
-
-      // 若没填（极端情况），兜底到稳定免费模型
-      if(!useModel){
-        if(provider==='openrouter') payload.model = 'openai/gpt-oss-20b:free';
-        if(provider==='openai') payload.model = 'gpt-3.5-turbo';
-        if(provider==='deepseek') payload.model = 'deepseek-chat';
-      }
+      // 强制文本返回，避免路由到非文本结构
+      payload.response_format = { type: 'text' };
 
       const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
       const raw = await resp.text();
@@ -701,10 +710,11 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       return out;
     },
 
-    // 练习
+    // 练习（分批生成 + 自适应回退；不限制句子长度）
     async startPracticeSession(){
       if(!this.activeApiKey) return this.showError('请输入 API Key');
 
+      // 1) 准备动词列表
       let targetVerbs = [];
       if(this.settings.mode==='group'){
         const g = this.settings.groupName;
@@ -717,21 +727,79 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         targetVerbs = all.sort(()=>0.5-Math.random()).slice(0,n);
       }
 
+      // 2) 分批：先 4 个/批，失败自动降到 3→2→1
       const persons = ['Je','Tu','Il/Elle/On','Nous','Vous','Ils/Elles'];
-      const total = targetVerbs.length * persons.length;
+      const expectedTotal = targetVerbs.length * persons.length;
+      const batches = (arr, size)=> arr.reduce((acc,_,i)=> (i%size? acc[acc.length-1].push(arr[i]) : acc.push([arr[i]]), acc), []);
+      const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
+      const safeJSON = (txt)=>{
+        const s = this.stripCodeFences(txt);
+        try { const a = JSON.parse(s); if(Array.isArray(a)) return a; } catch(e){}
+        const out = [];
+        const re = /{[\s\S]*?}/g; let m;
+        while((m = re.exec(s))){
+          try{
+            const o = JSON.parse(m[0]);
+            if(o && o.verb && o.person && o.answer) out.push(o);
+          }catch(_){}
+        }
+        return out;
+      };
 
-      this.loading = true; this.loadingText = `正在生成 ${total} 道题...`;
-      const prompt = this.buildPracticePrompt(this.settings.tense, this.settings.level, targetVerbs);
+      const tryOnce = async (verbSlice)=>{
+        const total = verbSlice.length * persons.length;
+        const prompt = this.buildPracticePrompt(this.settings.tense, this.settings.level, verbSlice);
+        const raw = await this.callLLM({ user: prompt });
+        const arr = safeJSON(raw);
+        if(!arr.length) throw new Error('模型无返回文本或返回为空。');
+        if(arr.length !== total){
+          console.warn('Batch got', arr.length, 'expected', total);
+        }
+        return arr;
+      };
 
+      let batchSize = Math.min(4, Math.max(1, targetVerbs.length));
+      let results = [];
+      this.loading = true;
       try{
-        const result = await this.callLLM({ user: prompt });
-        const arr = JSON.parse(this.stripCodeFences(result));
-        this.sessionCards = (arr || []).sort(()=>0.5-Math.random());
+        while(true){
+          results = [];
+          let ok = true;
+          const gs = batches(targetVerbs, batchSize);
+
+          for(let i=0;i<gs.length;i++){
+            this.loadingText = `正在生成（第 ${i+1}/${gs.length} 批，每批 ${batchSize} 词）...`;
+            try{
+              const arr = await tryOnce(gs[i]);
+              results.push(...arr);
+              await sleep(500); // 免费模型节流
+            }catch(e){
+              console.warn('batch failed @size', batchSize, e.message);
+              ok = false;
+              break;
+            }
+          }
+
+          if(ok) break;
+          if(batchSize > 1){ batchSize--; await sleep(800); }
+          else { throw new Error('频繁截断/限流：请更换模型或稍后重试。'); }
+        }
+
+        if(!results.length) throw new Error('模型无返回文本。');
+
+        // 合并、乱序
+        this.sessionCards = results.sort(()=>0.5-Math.random());
+        if(this.sessionCards.length < expectedTotal){
+          console.warn(`仅生成 ${this.sessionCards.length}/${expectedTotal} 题，将按已生成题目开始练习。`);
+        }
+
         this.isPracticeActive = true; this.currentIndex = 0; this.resetCardState();
       }catch(e){
         console.error(e);
         this.showError(e.message || '生成失败');
-      }finally{ this.loading = false; }
+      }finally{
+        this.loading = false; this.loadingText = '';
+      }
     },
 
     async showConjugationTable(verb){
