@@ -94,19 +94,16 @@
             </select>
           </div>
 
-          <!-- 模型选择 -->
+          <!-- 模型选择（保留） -->
           <div v-if="llm.provider!=='custom'">
             <label class="block text-xs font-medium text-gray-500 mb-1.5">模型</label>
             <select v-model="modelChoice" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
-              <!-- OpenRouter：免费精选 + 常用付费 -->
               <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 免费（推荐）">
                 <option v-for="m in openrouterFree" :key="'f-'+m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
               <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 常用付费（需余额）">
                 <option v-for="m in openrouterPaid" :key="'p-'+m.id" :value="m.id">{{ m.label }}</option>
               </optgroup>
-
-              <!-- 其它提供商：简洁推荐 -->
               <optgroup v-if="llm.provider==='openai'" label="推荐">
                 <option value="gpt-4o-mini">gpt-4o-mini</option>
                 <option value="gpt-4.1-mini">gpt-4.1-mini</option>
@@ -121,7 +118,6 @@
                 <option value="deepseek-chat">deepseek-chat</option>
                 <option value="deepseek-reasoner">deepseek-reasoner</option>
               </optgroup>
-
               <optgroup label="高级">
                 <option value="__custom__">自定义模型 ID…</option>
               </optgroup>
@@ -150,13 +146,10 @@
             <input type="password" v-model="llm.keys.openrouter" placeholder="在此粘贴 OpenRouter 或自定义服务的 Key"
                    class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
 
-            <!-- OpenRouter 简介卡片 -->
             <div v-if="llm.provider==='openrouter'" class="or-help text-emerald-900">
               <p><strong>OpenRouter 是什么？</strong> 一把 Key 聚合调用 OpenAI / Gemini / DeepSeek / Mistral 等。</p>
               <p><strong>免费怎么用？</strong> 选下拉里的 <code>:free</code> 模型（配额有限）。</p>
               <p><strong>极简上手：</strong> 1) 注册 openrouter.ai → 2) 创建 API Key → 3) 在此粘贴 → 4) 选模型并保存。</p>
-              <p class="text-[12px] mt-1">默认速率约 20 次/分钟；余额 &lt; $10 时每天≈50 次，余额 ≥ $10 时每天≈1000 次。</p>
-              <p class="mt-1"><a href="https://openrouter.ai/keys" target="_blank" class="underline text-emerald-700">获取 OpenRouter API Key</a></p>
               <p class="text-[12px] mt-1">若报 429/404，请更换模型或参考官方文档自行配置。</p>
             </div>
           </div>
@@ -388,7 +381,7 @@
     </div>
   </div>
 
-  <!-- 错误提示（简洁弹窗） -->
+  <!-- 错误提示 -->
   <div v-if="err.show" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50" @click.self="err.show=false">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-[92%] p-5">
       <div class="flex items-start gap-3">
@@ -413,7 +406,7 @@ createApp({
   data(){
     const defaultLLM = {
       provider:'openrouter',
-      model:'deepseek/deepseek-chat:free',
+      model:'', // 留空以启用自动路由；手动选择时会写入
       baseUrl:'',
       keys:{ openrouter:'', openai:'', gemini:'', deepseek:'' }
     };
@@ -427,21 +420,28 @@ createApp({
       loading:false, loadingText:'',
 
       llm,
-      // OpenRouter 精选（免费/付费）
-      openrouterFree: [
-        { id: 'openai/gpt-oss-20b:free',         label: 'OpenAI · GPT-OSS-20B（免费）' },
-        { id: 'openai/gpt-oss-120b:free',        label: 'OpenAI · GPT-OSS-120B（免费）' },
-        { id: 'deepseek/deepseek-chat:free',     label: 'DeepSeek · V3 Chat（免费）' },
-        { id: 'mistralai/mistral-small:free',    label: 'Mistral · Small（免费）' }
-      ],
-      openrouterPaid: [
-        { id: 'openai/gpt-4o-mini',              label: 'OpenAI · GPT-4o-mini（推荐）' },
-        { id: 'google/gemini-2.0-flash',         label: 'Google · Gemini 2.0 Flash' },
-        { id: 'deepseek/deepseek-chat',          label: 'DeepSeek · V3 Chat' },
-        { id: 'mistralai/mistral-small',         label: 'Mistral · Small' }
+      // 自动路由候选（从高到低）
+      autoRoute: [
+        'openai/gpt-oss-20b:free',
+        'mistralai/mistral-small:free',
+        'deepseek/deepseek-chat:free'
       ],
 
-      modelChoice: llm.model || 'deepseek/deepseek-chat:free',
+      // OpenRouter 精选（UI 里可见）
+      openrouterFree: [
+        { id: 'openai/gpt-oss-20b:free',      label: 'OpenAI · GPT-OSS-20B（免费）' },
+        { id: 'openai/gpt-oss-120b:free',     label: 'OpenAI · GPT-OSS-120B（免费，常见404）' },
+        { id: 'mistralai/mistral-small:free', label: 'Mistral · Small（免费）' },
+        { id: 'deepseek/deepseek-chat:free',  label: 'DeepSeek · V3 Chat（免费）' }
+      ],
+      openrouterPaid: [
+        { id: 'openai/gpt-4o-mini',           label: 'OpenAI · GPT-4o-mini（推荐）' },
+        { id: 'google/gemini-2.0-flash',      label: 'Google · Gemini 2.0 Flash' },
+        { id: 'deepseek/deepseek-chat',       label: 'DeepSeek · V3 Chat' },
+        { id: 'mistralai/mistral-small',      label: 'Mistral · Small' }
+      ],
+
+      modelChoice: llm.model || 'openai/gpt-oss-20b:free',
       customModel: llm.model || '',
 
       // 词库
@@ -479,7 +479,7 @@ createApp({
     'llm.provider':{
       handler(){
         if(this.llm.provider==='openrouter'){
-          this.modelChoice = this.openrouterFree[0].id;
+          this.modelChoice = this.llm.model || 'openai/gpt-oss-20b:free';
         }else if(this.llm.provider==='openai'){
           this.modelChoice = 'gpt-4o-mini';
         }else if(this.llm.provider==='gemini'){
@@ -515,12 +515,12 @@ createApp({
     if(!this.groups[this.currentGroup]) this.currentGroup = this.groupNames[0];
     this.settings.groupName = this.currentGroup;
 
-    const list = [
+    const known = [
       ...this.openrouterFree.map(x=>x.id),
       ...this.openrouterPaid.map(x=>x.id),
       'gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','deepseek-chat'
     ];
-    this.modelChoice = list.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : this.modelChoice);
+    this.modelChoice = known.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : this.modelChoice);
     if(this.modelChoice==='__custom__') this.customModel = this.llm.model || '';
   },
   methods:{
@@ -634,17 +634,55 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       return `调用失败（HTTP ${status || '未知'}）。`;
     },
 
-    // 多提供商调用
-    async callLLM({system=null, user, stream=false}){
+    // —— 自动路由封装（OpenRouter 专用）——
+    async callOpenRouterWithFallback(messages, preferModel){
+      const headers = { 'Content-Type':'application/json', 'Authorization': `Bearer ${this.llm.keys.openrouter}` };
+      const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+      // 组装尝试序列：优先用户选定；否则走 autoRoute
+      const queue = [];
+      const m = (preferModel||'').trim();
+      if(m) queue.push(m);
+      for(const x of this.autoRoute){ if(!queue.includes(x)) queue.push(x); }
+
+      let lastErr = null;
+      for(const model of queue){
+        try{
+          const payload = { model, messages, max_tokens: 4096, temperature: 0.2 };
+          const resp = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
+          const raw = await resp.text();
+          if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+          let data; try{ data = JSON.parse(raw); }catch{ throw new Error('服务端返回非 JSON。'); }
+          if(data?.error) throw new Error(this.friendlyError(resp.status, data.error?.message||''));
+          const out = this.extractText(data);
+          if(!out) throw new Error('模型无返回文本。');
+          // 成功后把实际可用模型写回并持久化
+          if(this.llm.model !== model){
+            this.llm.model = model;
+            localStorage.setItem('llm_settings', JSON.stringify(this.llm));
+          }
+          return out;
+        }catch(e){
+          lastErr = e;
+          const s = (e.message||'').toLowerCase();
+          // 404/429/配额/模型错误 → 继续尝试下一个；其他错误直接抛出
+          if(s.includes('404') || s.includes('429') || s.includes('quota') || s.includes('模型名不被支持') || s.includes('限流')) continue;
+          throw e;
+        }
+      }
+      throw lastErr || new Error('所有候选免费模型均不可用。');
+    },
+
+    // 多提供商调用（含自动路由）
+    async callLLM({system=null, user}){
       const provider = this.llm.provider;
-      const model = (this.llm.model||'').trim();
       const key = this.activeApiKey;
       if(!key) throw new Error('API Key 为空。');
 
-      // Gemini
+      // Gemini 直连
       if(provider==='gemini'){
-        const useModel = model || 'gemini-2.0-flash';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useModel)}:generateContent`;
+        const model = (this.llm.model || 'gemini-2.0-flash').trim();
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
         const payload = { contents: [{ role:'user', parts: [{ text: (system?(`[SYSTEM]\n${system}\n\n[USER]\n${user}`): user) }]}] };
         const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json','X-goog-api-key': key }, body: JSON.stringify(payload) });
         const raw = await resp.text();
@@ -655,47 +693,47 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
         return out;
       }
 
-      // OpenAI / OpenRouter / DeepSeek / 自定义：统一 chat-completions
-      let base = '';
-      const headers = { 'Content-Type':'application/json', 'Authorization': `Bearer ${key}` };
-      if(provider==='openai') base = 'https://api.openai.com/v1/chat/completions';
-      else if(provider==='openrouter') base = 'https://openrouter.ai/api/v1/chat/completions';
-      else if(provider==='deepseek') base = 'https://api.deepseek.com/v1/chat/completions';
-      else if(provider==='custom'){
-        base = (this.llm.baseUrl||'').trim();
-        if(!base) throw new Error('自定义 Base URL 为空');
+      // OpenAI / DeepSeek / 自定义：常规调用
+      if(provider!=='openrouter'){
+        let base = '';
+        const headers = { 'Content-Type':'application/json', 'Authorization': `Bearer ${key}` };
+        if(provider==='openai') base = 'https://api.openai.com/v1/chat/completions';
+        else if(provider==='deepseek') base = 'https://api.deepseek.com/v1/chat/completions';
+        else if(provider==='custom'){
+          base = (this.llm.baseUrl||'').trim();
+          if(!base) throw new Error('自定义 Base URL 为空');
+        }
+        const useModel =
+          (this.llm.model||'').trim() ||
+          (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'gpt-3.5-turbo'));
+
+        const payload = {
+          model: useModel,
+          messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
+          max_tokens: 4096,
+          temperature: 0.2
+        };
+
+        const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
+        const raw = await resp.text();
+        if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+        let data; try{ data = JSON.parse(raw); }catch{ throw new Error('服务端返回非 JSON。'); }
+        if(data?.error) throw new Error(this.friendlyError(resp.status, data.error?.message || ''));
+        const out = this.extractText(data);
+        if(!out) throw new Error('模型无返回文本。');
+        return out;
       }
 
-      const useModel =
-        model || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-3.5-turbo'));
-
-      const payload = {
-        model: useModel,
-        messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
-        stream: !!stream,
-        max_tokens: 4096,
-        temperature: 0.2
-      };
-
-      const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
-      const raw = await resp.text();
-      if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
-
-      let data;
-      try { data = JSON.parse(raw); }
-      catch(e){ console.error('非JSON返回：', raw); throw new Error('服务端返回非 JSON。'); }
-
-      if(data?.error){ console.error('API error payload:', data.error); throw new Error(this.friendlyError(resp.status, data.error?.message || '')); }
-
-      const out = this.extractText(data);
-      if(!out) throw new Error('模型无返回文本。');
-      return out;
+      // OpenRouter：自动路由
+      const prefer = (this.llm.model||'').trim();
+      const messages = [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ];
+      return await this.callOpenRouterWithFallback(messages, prefer);
     },
 
-    // 轻量清洗下划线/占位符（最小补丁）
+    // 轻量清洗下划线/占位符
     cleanBlank(s=''){
       return String(s)
-        .replace(/_{2,}/g,' ')                    // ____ -> 空格
+        .replace(/_{2,}/g,' ')
         .replace(/\s*\[(?:blank|空白|空格)\]\s*/gi,' ')
         .replace(/\s*<blank>\s*/gi,' ')
         .replace(/\(\s*blank\s*\)/gi,' ')
@@ -729,7 +767,6 @@ Use Tailwind CSS classes for styling (simple table). Output only the HTML table 
       try{
         const result = await this.callLLM({ user: prompt });
         const arr = JSON.parse(this.stripCodeFences(result));
-        // 最小化清洗：只处理前后缀中的下划线占位
         const cleaned = (arr || []).map(o => ({
           ...o,
           prefix: this.cleanBlank(o.prefix || ''),
