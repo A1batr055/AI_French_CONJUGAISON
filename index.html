@@ -1,346 +1,777 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AI 法语变位大师 · 多模型</title>
-  <script src="https://cdn.jsdelivr.net/npm/vue@3.5.12/dist/vue.global.prod.js"></script>
-  <script src="https://kit.fontawesome.com/a2e0e9b6d8.js" crossorigin="anonymous"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>AI法语变位大师 · 多模型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
-    :root{ --ink:#0b1220; --bd:#e5e7eb; --brand:#10b981; --muted:#667085; }
-    *{ box-sizing:border-box } html,body{height:100%}
-    body{ margin:0; background:#f5f7fb; color:var(--ink); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial }
-    .container{ max-width:1100px; margin:0 auto; padding:16px }
-    header{ display:flex; justify-content:space-between; gap:8px; margin-bottom:12px }
-    .tabs{ display:flex; gap:8px; flex-wrap:wrap }
-    .tab{ padding:8px 12px; border:1px solid var(--bd); background:#fff; border-radius:10px; cursor:pointer }
-    .tab[aria-selected="true"]{ background:#eef2ff; border-color:#c7d2fe }
-    .card{ background:#fff; border:1px solid var(--bd); border-radius:16px; padding:16px; margin:12px 0 }
-    .row{ display:flex; gap:12px; flex-wrap:wrap } .col{ flex:1 1 320px; min-width:280px }
-    label{ display:block; margin:10px 0 6px; color:#64748b; font-size:12px }
-    input,select,textarea,button{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--bd); background:#fff; color:var(--ink) }
-    textarea{ min-height:120px; resize:vertical }
-    button.primary{ background:var(--brand); color:#fff; border:none; cursor:pointer }
-    .muted{ color:#94a3b8; font-size:12px } .divider{height:1px;background:#eef2f7;margin:12px 0}
-    .toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; background:#10151f; color:#fff; padding:10px 14px; border-radius:10px; border:1px solid #2b3345; z-index:9999 }
+    html, body { height: 100%; }
+    body{
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+      background:radial-gradient(circle at 10% 0%,#ecfdf5 0,#e0f2fe 40%,#f9fafb 100%);
+      overflow-y:auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    [v-cloak]{display:none}
+    .loader{border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    /* OpenRouter 说明卡片在大屏的排版优化 */
+    .or-help{margin-top:.5rem;padding:.9rem;border:1px dashed #cbd5e1;border-radius:.7rem;font-size:.92rem;line-height:1.55;background:rgba(236,253,245,.55)}
+    .or-help strong{font-weight:650}
+    @media (min-width:1024px){
+      .or-help{padding:1rem 1.1rem;max-width:54rem}
+      .or-help p{margin:.25rem 0}
+      .or-help code{padding:.05rem .35rem;border-radius:.35rem;background:#fff}
+    }
+    /* 底部 sticky 操作条（词库页） */
+    .sticky-bar{
+      position: sticky; bottom: 0; z-index: 15;
+      background: linear-gradient(180deg, rgba(249,250,251,0) 0%, rgba(249,250,251,.92) 38%, rgba(249,250,251,1) 100%);
+      padding-top: .5rem; padding-bottom: .75rem;
+      backdrop-filter: blur(6px);
+    }
   </style>
 </head>
-<body>
-  <div id="app">
-    <div class="container">
-      <header>
-        <div><strong>AI 法语变位大师</strong></div>
-        <nav class="tabs" role="tablist" aria-label="pages">
-          <button class="tab" role="tab" :aria-selected="currentView==='settings'" @click="switchView('settings')">设置</button>
-          <button class="tab" role="tab" :aria-selected="currentView==='verbs'" @click="switchView('verbs')">词库</button>
-          <button class="tab" role="tab" :aria-selected="currentView==='practice'" @click="switchView('practice')">练习</button>
-        </nav>
-      </header>
+<body class="text-gray-800 min-h-screen flex flex-col">
+<div id="app" v-cloak class="flex-1 flex flex-col">
 
-      <section v-show="currentView==='settings'" class="card">
-        <h3 style="margin:0 0 8px 0">模型与密钥</h3>
-        <div class="row">
-          <div class="col">
-            <label>调用方式</label>
-            <select v-model="llm.provider">
-              <option value="openrouter">OpenRouter（推荐）</option>
-              <option value="openai">OpenAI（直连）</option>
-              <option value="gemini">Google Gemini（直连）</option>
-              <option value="deepseek">DeepSeek（直连）</option>
-              <option value="custom">自定义（OpenAI 协议兼容）</option>
+  <nav class="bg-white/80 backdrop-blur border-b border-emerald-50 py-3 shadow-sm z-10">
+    <div class="max-w-5xl mx-auto flex justify-between items-center px-3 md:px-0">
+      <h1 class="text-base md:text-lg font-semibold tracking-tight flex items-center gap-2 text-emerald-700">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700">
+          <i class="fas fa-brain text-sm"></i>
+        </span>
+        <span class="flex flex-col leading-snug">
+          <span>AI Conjugaison</span>
+          <span class="text-[11px] text-gray-400 font-normal hidden sm:block">多模型 · 法语变位助手</span>
+        </span>
+      </h1>
+      <div class="text-xs md:text-sm flex gap-4 items-center">
+        <button @click="currentView='settings'"
+                :class="['pb-1 border-b-2',currentView==='settings'?'border-emerald-500 text-emerald-700 font-semibold':'border-transparent text-gray-400 hover:text-gray-700']">
+          设置 & Key
+        </button>
+        <button @click="currentView='library'"
+                :class="['pb-1 border-b-2',currentView==='library'?'border-emerald-500 text-emerald-700 font-semibold':'border-transparent text-gray-400 hover:text-gray-700']">
+          词库
+        </button>
+        <button @click="currentView='practice'"
+                :class="['pb-1 border-b-2',currentView==='practice'?'border-emerald-500 text-emerald-700 font-semibold':'border-transparent text-gray-400 hover:text-gray-700']">
+          练习
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="flex-1 py-6 px-4">
+    <div class="max-w-5xl mx-auto relative">
+      <div v-if="loading" class="fixed inset-0 bg-white/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+        <div class="loader mb-4"></div>
+        <p class="text-emerald-600 font-semibold animate-pulse tracking-wide text-sm">{{ loadingText }}</p>
+      </div>
+
+      <!-- 设置 -->
+      <div v-if="currentView==='settings'"
+           class="max-w-2xl mx-auto bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8 flex flex-col gap-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-xl font-semibold text-gray-900 tracking-tight">系统设置</h2>
+          <span class="text-[11px] uppercase tracking-[0.16em] text-gray-400">LLM Providers</span>
+        </div>
+        <p class="text-xs text-gray-500">Key 仅保存在你的浏览器。前端直连会暴露 Key，请自行评估风险。</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- 提供商 -->
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">提供商</label>
+            <select v-model="llm.provider" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+              <option value="openrouter">OpenRouter（含免费精选）</option>
+              <option value="openai">OpenAI（ChatGPT）</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="custom">自定义（手动填 Base URL）</option>
             </select>
-            <div class="muted" style="margin-top:6px">默认使用 OpenRouter 免费模型；其它直连需自备可用 Key 与模型 ID。</div>
           </div>
 
-          <div class="col" v-show="llm.provider==='openrouter'">
-            <label>免费模型（自动同步，稳定精选）</label>
-            <select v-model="modelChoice">
-              <option v-for="m in orModelsToShow" :key="'or-'+m.id" :value="m.id">{{ m.label }}</option>
+          <!-- 模型选择 -->
+          <div v-if="llm.provider!=='custom'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">模型</label>
+            <select v-model="modelChoice" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+              <!-- OpenRouter：免费精选 + 常用付费 -->
+              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 免费（推荐）">
+                <option v-for="m in openrouterFree" :key="'f-'+m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
+              <optgroup v-if="llm.provider==='openrouter'" label="OpenRouter 常用付费（需余额）">
+                <option v-for="m in openrouterPaid" :key="'p-'+m.id" :value="m.id">{{ m.label }}</option>
+              </optgroup>
+
+              <!-- 其它提供商：简洁推荐 -->
+              <optgroup v-if="llm.provider==='openai'" label="推荐">
+                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+              </optgroup>
+              <optgroup v-if="llm.provider==='gemini'" label="推荐">
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+              </optgroup>
+              <optgroup v-if="llm.provider==='deepseek'" label="推荐">
+                <option value="deepseek-chat">deepseek-chat</option>
+                <option value="deepseek-reasoner">deepseek-reasoner</option>
+              </optgroup>
+
+              <optgroup label="高级">
+                <option value="__custom__">自定义模型 ID…</option>
+              </optgroup>
             </select>
-            <div class="muted" style="margin-top:6px">
-              新账号合计约 <b>50 次/天</b>；如购买 ≥10 credits，免费模型升至 <b>1000 次/天</b>。
-            </div>
           </div>
 
-          <div class="col" v-show="llm.provider!=='openrouter'">
-            <label>自填模型 ID</label>
-            <input v-model="llm.model" placeholder="例如：gpt-4o-mini / gemini-2.0-flash / deepseek-chat">
+          <!-- 自定义 Base URL -->
+          <div v-if="llm.provider==='custom'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">自定义 Base URL</label>
+            <input v-model="llm.baseUrl" placeholder="https://example.com/v1/chat/completions"
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+          </div>
+
+          <!-- 自定义模型 ID -->
+          <div v-if="modelChoice==='__custom__'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">自定义模型 ID</label>
+            <input v-model="customModel" placeholder="如：openai/gpt-4o-mini 或 deepseek/deepseek-chat:free"
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
           </div>
         </div>
 
-        <div class="row">
-          <div class="col">
-            <label>API Key</label>
-            <input v-model="llm.keys[llm.provider]" placeholder="在此粘贴你的 API Key（本地保存）" autocomplete="off">
-            <div class="muted" style="margin-top:6px">
-              OpenRouter Key：<a href="https://openrouter.ai/keys" target="_blank" rel="noopener">https://openrouter.ai/keys</a>
+        <!-- Keys -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          <div v-if="['openrouter','custom'].includes(llm.provider)">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">OpenRouter / 自定义 Key</label>
+            <input type="password" v-model="llm.keys.openrouter" placeholder="在此粘贴 OpenRouter 或自定义服务的 Key"
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+
+            <!-- OpenRouter 简介卡片（重排版） -->
+            <div v-if="llm.provider==='openrouter'" class="or-help text-emerald-900">
+              <p><strong>OpenRouter 是什么？</strong> 一把 Key 聚合调用 OpenAI / Gemini / DeepSeek / Mistral 等。</p>
+              <p><strong>免费怎么用？</strong> 选下拉里的 <code>:free</code> 模型（配额有限）。</p>
+              <p><strong>极简上手：</strong> 1) 注册 openrouter.ai → 2) 创建 API Key → 3) 在此粘贴 → 4) 选模型并保存。</p>
+              <p class="text-[12px] mt-1">默认速率约 20 次/分钟；余额 &lt; $10 时每天≈50 次，余额 ≥ $10 时每天≈1000 次。</p>
+              <p class="mt-1"><a href="https://openrouter.ai/keys" target="_blank" class="underline text-emerald-700">获取 OpenRouter API Key</a></p>
             </div>
           </div>
-          <div class="col">
-            <label>高级选项</label>
-            <div class="row">
-              <div class="col">
-                <input type="number" step="0.1" min="0" max="2" v-model.number="llm.temperature">
-                <div class="muted">temperature（0–2）</div>
+
+          <div v-if="llm.provider==='openai'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">OpenAI API Key</label>
+            <input type="password" v-model="llm.keys.openai" placeholder="sk-..."
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+          </div>
+
+          <div v-if="llm.provider==='gemini'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Gemini API Key</label>
+            <input type="password" v-model="llm.keys.gemini" placeholder="在此粘贴 Google API Key"
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+          </div>
+
+          <div v-if="llm.provider==='deepseek'">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">DeepSeek API Key</label>
+            <input type="password" v-model="llm.keys.deepseek" placeholder="ds-..."
+                   class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+          </div>
+        </div>
+
+        <button @click="saveSettings"
+                class="mt-4 w-full bg-emerald-600 text-white py-2.5 rounded-xl hover:bg-emerald-700 text-sm font-medium tracking-wide transition flex items-center justify-center gap-2">
+          <i class="fas fa-save text-xs"></i><span>保存设置并进入词库</span>
+        </button>
+      </div>
+
+      <!-- 词库 -->
+      <div v-if="currentView==='library'" class="max-w-4xl mx-auto flex flex-col gap-6">
+        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5 mt-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">当前分组</label>
+              <select v-model="currentGroup" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option v-for="g in groupNames" :key="g" :value="g">{{ g }} ({{ groups[g].length }})</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">新建分组</label>
+              <div class="flex gap-2">
+                <input v-model="newGroupName" placeholder="如：不规则动词"
+                       class="flex-1 text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+                <button @click="addGroup" class="px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black transition">添加分组</button>
               </div>
-              <div class="col">
-                <input type="number" min="1" max="8192" v-model.number="llm.max_tokens">
-                <div class="muted">max_tokens</div>
-              </div>
+            </div>
+            <div class="flex justify-end">
+              <button @click="goPractice"
+                      class="h-10 px-4 md:px-5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition flex items-center gap-2">
+                <i class="fas fa-play"></i><span>开始练习</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="divider"></div>
-        <div class="row">
-          <div class="col"><button class="primary" @click="saveSettings">保存设置</button></div>
-          <div class="col"><button @click="resetSettings">清空本地设置</button></div>
-        </div>
-      </section>
-
-      <section v-show="currentView==='verbs'" class="card">
-        <h3 style="margin:0 0 8px 0">词库</h3>
-        <div class="row">
-          <div class="col">
-            <label>添加动词（逗号分隔）</label>
-            <textarea v-model="newVerb" placeholder="venir, aller, être, avoir"></textarea>
-            <div class="row" style="margin-top:6px">
-              <div class="col"><button class="primary" @click="addVerb">添加到词库</button></div>
-              <div class="col"><button @click="clearVerbs">清空词库</button></div>
-              <div class="col"><button class="primary" @click="switchView('practice')">开始练习 →</button></div>
-            </div>
+        <div class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 p-4 md:p-5">
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">分组词库 · {{ currentGroup }}</h2>
+            <span class="text-[11px] text-gray-400">点击卡片查看变位，可移动到其它分组</span>
           </div>
-          <div class="col">
-            <label>当前词库</label>
-            <textarea :value="allVerbs.join(', ')" readonly></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section v-show="currentView==='practice'" class="card">
-        <h3 style="margin:0 0 8px 0">练习</h3>
-        <div class="row">
-          <div class="col">
-            <label>生成题目提示词（可改）</label>
-            <textarea v-model="promptTpl">请用法语为以下动词各生成 6 道人称变位填空题（Je, Tu, Il/Elle/On, Nous, Vous, Ils/Elles），并给出答案与简要讲解。动词列表：{{verbs}}</textarea>
-          </div>
-          <div class="col">
-            <label>操作</label>
-            <button id="gen" class="primary" @click="startPracticeSession">
-              {{ activeApiKey ? '生成题目（调用 AI）' : '生成题目（将提示填写 Key）' }}
+          <div class="flex gap-2 mt-3">
+            <input v-model="newVerb" @keyup.enter="addVerb" placeholder="输入动词（如：s'asseoir, peindre）"
+                   class="flex-grow text-sm px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none bg-gray-50/80">
+            <button @click="addVerb" class="px-4 md:px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-black transition whitespace-nowrap">
+              添加到 {{ currentGroup }}
             </button>
-            <div class="muted" style="margin-top:6px">若 404/429，请在“设置”更换模型；或等 1–2 分钟再试。</div>
           </div>
         </div>
-        <div class="divider"></div>
-        <label>输出</label>
-        <textarea id="out" readonly style="min-height:240px">{{ lastOutput }}</textarea>
-      </section>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-6">
+          <div v-for="(v, idx) in groupVerbs" :key="v"
+               class="bg-white/70 backdrop-blur border border-gray-100 hover:border-emerald-200 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all">
+            <div class="flex items-center justify-between gap-2">
+              <button class="flex-1 text-left" @click="showConjugationTable(v)">
+                <span class="block font-semibold text-gray-800 text-sm truncate">{{ v }}</span>
+              </button>
+              <button @click="removeVerb(idx)" class="ml-2 text-gray-300 hover:text-red-500 transition">
+                <i class="fas fa-trash text-xs"></i>
+              </button>
+            </div>
+            <div class="mt-2">
+              <label class="block text-[11px] text-gray-400 mb-1">移动到</label>
+              <select @change="moveVerb(v, $event.target.value)" class="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg bg-gray-50/80">
+                <option disabled selected value="">选择分组</option>
+                <option v-for="g in groupNames" :key="g" :value="g" v-if="g!==currentGroup">{{ g }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部 sticky 开始练习条 -->
+        <div class="sticky-bar">
+          <div class="max-w-4xl mx-auto flex items-center justify-between gap-3 px-1">
+            <div class="text-[12px] text-gray-500">
+              总词数：{{ allVerbs.length }} · 当前分组：{{ groups[currentGroup]?.length || 0 }}
+            </div>
+            <button @click="goPractice"
+                    class="px-4 md:px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition flex items-center gap-2">
+              <i class="fas fa-play"></i><span>开始练习</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 练习 -->
+      <div v-if="currentView==='practice'" class="max-w-3xl mx-auto">
+        <div v-if="!isPracticeActive" class="bg-white/80 backdrop-blur rounded-2xl shadow-sm border border-emerald-50 mt-10 p-6 md:p-8">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-xl font-semibold text-gray-900 tracking-tight">生成练习配置</h2>
+              <p class="text-xs text-gray-500 mt-1">选择水平 → 练习时态 → 动词来源。每个动词固定出 6 题（六个人称），总题数 = 词数 × 6。</p>
+            </div>
+            <span class="hidden sm:inline-flex text-[11px] uppercase tracking-[0.2em] text-gray-400">Practice</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">语言水平（CEFR）</label>
+              <select v-model="settings.level" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option v-for="l in ['A1','A2','B1','B2','C1','C2']" :value="l">{{ l }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">练习时态</label>
+              <select v-model="settings.tense" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option value="Présent">Présent（现在时）</option>
+                <option value="Passé Composé">Passé Composé（复合过去）</option>
+                <option value="Imparfait">Imparfait（未完成过去）</option>
+                <option value="Futur Simple">Futur Simple（简单将来）</option>
+                <option value="Subjonctif Présent">Subjonctif Présent（虚拟式现在）</option>
+                <option value="Conditionnel Présent">Conditionnel Présent（条件式现在）</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">题目来源</label>
+              <div class="flex flex-col gap-2 text-sm">
+                <label class="inline-flex items-center gap-2"><input type="radio" v-model="settings.mode" value="group" class="accent-emerald-600"><span>按分组</span></label>
+                <label class="inline-flex items-center gap-2"><input type="radio" v-model="settings.mode" value="all" class="accent-emerald-600"><span>全词库随机</span></label>
+              </div>
+            </div>
+            <div v-if="settings.mode==='group'">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">选择分组</label>
+              <select v-model="settings.groupName" class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+                <option v-for="g in groupNames" :key="g" :value="g">{{ g }}（{{ groups[g].length }} 词）</option>
+              </select>
+              <p class="text-[11px] text-gray-400 mt-1">总题数 = 该分组词数 × 6</p>
+            </div>
+            <div v-if="settings.mode==='all'">
+              <label class="block text-xs font-medium text-gray-500 mb-1.5">随机抽取动词数量</label>
+              <input type="number" min="1" :max="allVerbs.length" v-model.number="settings.count"
+                     class="w-full text-sm px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50/80 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-400 outline-none">
+              <p class="text-[11px] text-gray-400 mt-1">总题数 = 数量 × 6</p>
+            </div>
+          </div>
+
+          <button @click="startPracticeSession" :disabled="!activeApiKey"
+                  class="w-full py-3 rounded-xl text-sm font-medium shadow-sm transition flex items-center justify-center gap-2"
+                  :class="activeApiKey?'bg-emerald-600 text-white hover:bg-emerald-700':'bg-gray-200 text-gray-500 cursor-not-allowed'">
+            <i class="fas fa-magic text-xs" v-if="activeApiKey"></i>
+            <span>{{ activeApiKey?'生成题目（调用 AI）':'请先在“设置”中输入 API Key' }}</span>
+          </button>
+        </div>
+
+        <!-- 练习卡片 -->
+        <div v-else class="flex flex-col justify-center mt-6 mb-8">
+          <div class="bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-emerald-50 p-6 md:p-8 relative min-h-[360px] flex flex-col justify-between">
+            <div class="flex justify-between text-xs text-gray-400 mb-6 border-b border-gray-100 pb-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>{{ settings.tense }} · {{ currentCard.person }} · {{ settings.level }}</span>
+              </span>
+              <span>题目 {{ currentIndex + 1 }} / {{ sessionCards.length }}</span>
+            </div>
+
+            <div class="text-center px-2">
+              <div class="text-2xl md:text-3xl font-semibold text-emerald-800 mb-1 tracking-tight">{{ currentCard.verb }}</div>
+              <div class="text-xs text-gray-500 mb-6">请填写空格中的正确变位形式</div>
+              <div class="text-lg md:text-xl leading-relaxed mb-6 font-medium text-gray-800">
+                <span v-html="currentCard.prefix"></span>
+                <input ref="answerInput" v-model="userInput" @keyup.enter="checkAnswer"
+                       :class="{
+                         'border-emerald-500 bg-emerald-50 text-emerald-700': feedback.status==='correct',
+                         'border-red-500 bg-red-50 text-red-600': feedback.status==='wrong',
+                         'border-gray-300 bg-gray-50/80': feedback.status==='neutral'
+                       }"
+                       class="border-b-2 outline-none text-center mx-1 w-40 px-1 font-mono font-semibold bg-transparent transition-all text-base md:text-lg py-0.5"
+                       autocomplete="off" inputmode="latin">
+                <span v-html="currentCard.suffix"></span>
+              </div>
+              <div class="inline-flex items-center gap-2 text-gray-500 italic text-[13px] mt-2 bg-gray-50/80 px-3 py-2 rounded-full">
+                <i class="fas fa-language text-xs text-gray-400"></i><span>"{{ currentCard.translation }}"</span>
+              </div>
+            </div>
+
+            <div class="mt-6 h-14 text-center flex flex-col items-center justify-center gap-1">
+              <div v-if="feedback.status==='wrong'" class="text-red-500 text-sm flex items-center gap-2"><i class="fas fa-times-circle text-sm"></i><span>不对，再想想。剩余机会：{{ 3 - feedback.attempts }}</span></div>
+              <div v-if="feedback.showAnswer" class="text-orange-600 text-sm">正确答案：<span class="font-semibold">{{ currentCard.answer }}</span></div>
+              <div v-if="feedback.status==='correct'" class="text-emerald-500 font-semibold text-base flex items-center gap-2"><i class="fas fa-check-circle text-lg"></i><span>Très bien !</span></div>
+            </div>
+
+            <div class="mt-4 flex flex-col sm:flex-row gap-3">
+              <button v-if="feedback.status!=='correct'" @click="checkAnswer" class="flex-1 bg-gray-900 text-white py-2.5 rounded-xl shadow-sm hover:bg-black text-sm font-medium transition">提交答案</button>
+              <button v-else class="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-medium cursor-wait opacity-80 flex items-center justify-center gap-2">
+                <span class="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin"></span><span>加载下一题...</span>
+              </button>
+              <button @click="endPractice" class="sm:w-28 py-2.5 rounded-xl border border-gray-200 text-xs text-gray-500 hover:border-gray-300 hover:bg-gray-50 flex items-center justify-center gap-1 transition">
+                <i class="fas fa-xmark text-xs"></i><span>结束练习</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- 变位表模态框 -->
+  <div v-if="showModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" @click.self="showModal=false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-gray-100">
+      <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 rounded-t-2xl">
+        <div class="flex flex-col">
+          <h3 class="text-lg font-semibold text-gray-900">变位表 · {{ modalVerb }}</h3>
+          <span class="text-[11px] text-gray-400 mt-0.5">Présent / Passé Composé / Imparfait / Futur Simple / Subjonctif Présent / Conditionnel Prés现</span>
+        </div>
+        <button @click="showModal=false" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-sm"></i></button>
+      </div>
+      <div class="p-4 md:p-6 overflow-y-auto prose max-w-none text-sm" v-html="modalContent"></div>
     </div>
   </div>
 
-  <div id="toast" class="toast" style="display:none"></div>
+  <!-- 错误提示（简洁弹窗） -->
+  <div v-if="err.show" class="fixed inset-0 bg-black/30 flex items-center justify-center z-50" @click.self="err.show=false">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-[92%] p-5">
+      <div class="flex items-start gap-3">
+        <div class="text-red-500"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="flex-1">
+          <div class="font-semibold mb-1">操作失败</div>
+          <div class="text-sm text-gray-700 whitespace-pre-line">{{ err.msg }}</div>
+        </div>
+      </div>
+      <div class="mt-4 text-right">
+        <button @click="err.show=false" class="px-4 py-1.5 rounded-md bg-gray-900 text-white text-sm">知道了</button>
+      </div>
+    </div>
+  </div>
 
-  <script>
-  // —— 防止 localStorage 坏 JSON 直接把页面搞崩 ——
-  function safeGetJSON(key, fallback){
-    try{
-      const v = localStorage.getItem(key);
-      if(!v) return fallback;
-      return JSON.parse(v);
-    }catch(e){
-      console.warn('损坏的本地数据，已清除：', key);
-      try{ localStorage.removeItem(key); }catch{}
-      return fallback;
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data(){
+    const defaultLLM = {
+      provider:'openrouter',
+      model:'deepseek/deepseek-chat:free',
+      baseUrl:'',
+      keys:{ openrouter:'', openai:'', gemini:'', deepseek:'' }
+    };
+    let storedLLM = null;
+    try { storedLLM = JSON.parse(localStorage.getItem('llm_settings') || 'null') } catch(e){ storedLLM = null; }
+    const llm = Object.assign({}, defaultLLM, storedLLM || {});
+    if(!llm.keys) llm.keys = { openrouter:'', openai:'', gemini:'', deepseek:'' };
+
+    return {
+      currentView:'settings',
+      loading:false, loadingText:'',
+
+      llm,
+      // OpenRouter 精选（免费/付费）
+      openrouterFree: [
+        { id: 'google/gemini-2.0-flash-exp:free', label: 'Google · Gemini 2.0 Flash Experimental（免费）' },
+        { id: 'openai/gpt-oss-20b:free',         label: 'OpenAI · GPT-OSS-20B（免费）' },
+        { id: 'openai/gpt-oss-120b:free',        label: 'OpenAI · GPT-OSS-120B（免费）' },
+        { id: 'deepseek/deepseek-chat:free',     label: 'DeepSeek · V3 Chat（免费）' },
+        { id: 'mistralai/mistral-small:free',    label: 'Mistral · Small（免费）' }
+      ],
+      openrouterPaid: [
+        { id: 'openai/gpt-4o-mini',              label: 'OpenAI · GPT-4o-mini（推荐）' },
+        { id: 'google/gemini-2.0-flash',         label: 'Google · Gemini 2.0 Flash' },
+        { id: 'deepseek/deepseek-chat',          label: 'DeepSeek · V3 Chat' },
+        { id: 'mistralai/mistral-small',         label: 'Mistral · Small' }
+      ],
+
+      modelChoice: llm.model || 'deepseek/deepseek-chat:free',
+      customModel: llm.model || '',
+
+      // 词库
+      groups:{}, currentGroup:'默认', newGroupName:'', newVerb:'',
+      isPracticeActive:false,
+      settings:{ level:'A2', tense:'Présent', mode:'group', groupName:'默认', count:5 },
+      sessionCards:[], currentIndex:0,
+      userInput:'', feedback:{ status:'neutral', attempts:0, showAnswer:false },
+
+      showModal:false, modalVerb:'', modalContent:'',
+      err:{ show:false, msg:'' }
     }
-  }
-
-  const { createApp } = Vue;
-
-  createApp({
-    data(){
-      const curatedOrFree = [
-        { id: 'openai/gpt-oss-20b:free',                label: 'OpenAI · GPT-OSS-20B（free）' },
-        { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Meta · Llama-3.3-70B-Instruct（free）' },
-        { id: 'amazon/nova-2-lite-v1:free',             label: 'Amazon · Nova-2-Lite-v1（free）' },
-        { id: 'google/gemini-2.0-flash-exp:free',       label: 'Google · Gemini 2.0 Flash Exp（free，非默认）' }
-      ];
-      const defaultLLM = {
-        provider:'openrouter',
-        model:'openai/gpt-oss-20b:free',
-        baseUrl:'',
-        temperature:0.2,
-        max_tokens:512,
-        keys:{ openrouter:'', openai:'', gemini:'', deepseek:'', custom:'' }
-      };
-      return {
-        currentView:'settings',
-        llm: safeGetJSON('llm_settings', defaultLLM),
-        curatedOrFree,
-        orUserFree:[], modelChoice:'openai/gpt-oss-20b:free',
-        groups: safeGetJSON('verb_groups', { '默认':['parler','finir','être','avoir','aller','faire','pouvoir','savoir'] }),
-        currentGroup:'默认',
-        newVerb:'',
-        promptTpl:'请用法语为以下动词各生成 6 道人称变位填空题（Je, Tu, Il/Elle/On, Nous, Vous, Ils/Elles），并给出答案与简要讲解。动词列表：{{verbs}}',
-        lastOutput:'',
-        err:{ show:false, msg:'' }
-      }
+  },
+  computed:{
+    groupNames(){ return Object.keys(this.groups); },
+    groupVerbs(){ return this.groups[this.currentGroup] || []; },
+    allVerbs(){
+      const s = new Set();
+      for(const g of Object.keys(this.groups)) (this.groups[g]||[]).forEach(v=>s.add(v));
+      return Array.from(s);
     },
-    computed:{
-      orModelsToShow(){
-        if(this.orUserFree.length){
-          const allow = new Set(this.curatedOrFree.map(m=>m.id));
-          return this.orUserFree.filter(m => allow.has(m.id));
-        }
-        return this.curatedOrFree;
-      },
-      allVerbs(){ return Array.from(new Set(Object.values(this.groups).flat())); },
-      activeApiKey(){
-        const p=this.llm.provider;
-        return (this.llm.keys && this.llm.keys[p]) ? this.llm.keys[p].trim() : '';
-      }
+    currentCard(){
+      return this.sessionCards[this.currentIndex] || { prefix:'', suffix:'', verb:'', person:'', answer:'', translation:'', tense:this.settings.tense };
     },
-    mounted(){
-      this.modelChoice = this.llm.model || 'openai/gpt-oss-20b:free';
-      if(this.llm.provider==='openrouter' && (this.llm.keys.openrouter||'').trim()){
-        this.tryLoadOrUserModels();
-      }
+    activeApiKey(){
+      const p = this.llm.provider;
+      if(p==='openrouter' || p==='custom') return (this.llm.keys.openrouter||'').trim();
+      if(p==='openai') return (this.llm.keys.openai||'').trim();
+      if(p==='gemini') return (this.llm.keys.gemini||'').trim();
+      if(p==='deepseek') return (this.llm.keys.deepseek||'').trim();
+      return '';
+    }
+  },
+  watch:{
+    'llm.provider':{
+      handler(){
+        if(this.llm.provider==='openrouter'){
+          this.modelChoice = this.openrouterFree[0].id;
+        }else if(this.llm.provider==='openai'){
+          this.modelChoice = 'gpt-4o-mini';
+        }else if(this.llm.provider==='gemini'){
+          this.modelChoice = 'gemini-2.0-flash';
+        }else if(this.llm.provider==='deepseek'){
+          this.modelChoice = 'deepseek-chat';
+        }else{
+          this.modelChoice = '__custom__';
+        }
+        if(this.modelChoice!=='__custom__') this.llm.model = this.modelChoice;
+      }, immediate:true
     },
-    methods:{
-      switchView(v){ this.currentView=v; },
-      toast(s){
-        const t=document.getElementById('toast');
-        t.textContent=s; t.style.display='block';
-        clearTimeout(this._t); this._t=setTimeout(()=>t.style.display='none',2200);
-      },
-      showError(msg){ alert(msg); },
+    modelChoice(val){
+      if(val==='__custom__'){ this.llm.model = (this.customModel||'').trim(); }
+      else { this.llm.model = val; }
+    },
+    customModel(val){
+      if(this.modelChoice==='__custom__') this.llm.model = (val||'').trim();
+    }
+  },
+  mounted(){
+    const oldGeminiKey = localStorage.getItem('gemini_api_key');
+    if(oldGeminiKey && !this.llm.keys?.gemini){ this.llm.keys.gemini = oldGeminiKey; }
 
-      saveSettings(){
-        this.llm.model = this.modelChoice || this.llm.model || 'openai/gpt-oss-20b:free';
-        localStorage.setItem('llm_settings', JSON.stringify(this.llm));
-        this.toast('设置已保存');
-      },
-      resetSettings(){
-        localStorage.removeItem('llm_settings');
-        this.toast('已清空本地设置'); setTimeout(()=>location.reload(),300);
-      },
+    const stored = localStorage.getItem('verb_groups');
+    if(stored){
+      try { this.groups = JSON.parse(stored) || {}; } catch(e){ this.groups = {}; }
+    }else{
+      // —— 仅此处做了必要修改：防御性解析 verb_library，坏数据时自动清理并回退 —— 
+      let old = [];
+      try {
+        old = JSON.parse(localStorage.getItem('verb_library') || '[]');
+        if(!Array.isArray(old)) old = [];
+      } catch(e){
+        // 清除损坏条目，避免下一次再崩
+        try{ localStorage.removeItem('verb_library'); }catch(_){}
+        old = [];
+      }
+      this.groups = { '默认': (old.length? old : ['aimer','finir','être','avoir','aller','faire','pouvoir','savoir']) };
+      this.saveGroups();
+    }
+    if(!this.groups[this.currentGroup]) this.currentGroup = this.groupNames[0] || '默认';
+    this.settings.groupName = this.currentGroup;
 
-      addVerb(){
-        const raw=(this.newVerb||'').trim(); if(!raw) return this.toast('请输入动词');
-        const add=raw.split(',').map(s=>s.trim()).filter(Boolean);
-        const g=this.groups[this.currentGroup]||[];
-        this.groups[this.currentGroup]=Array.from(new Set([...g,...add]));
-        this.newVerb='';
-        localStorage.setItem('verb_groups', JSON.stringify(this.groups));
-        this.toast('已添加到词库');
-      },
-      clearVerbs(){
-        if(confirm('确定清空当前所有分组内的动词吗？')){
-          this.groups={ '默认':[] }; this.currentGroup='默认';
-          localStorage.setItem('verb_groups', JSON.stringify(this.groups));
-          this.toast('已清空');
-        }
-      },
+    const list = [
+      ...this.openrouterFree.map(x=>x.id),
+      ...this.openrouterPaid.map(x=>x.id),
+      'gpt-4o-mini','gpt-3.5-turbo','gemini-2.0-flash','deepseek-chat'
+    ];
+    this.modelChoice = list.includes(this.llm.model) ? this.llm.model : (this.llm.model ? '__custom__' : this.modelChoice);
+    if(this.modelChoice==='__custom__') this.customModel = this.llm.model || '';
+  },
+  methods:{
+    // 公共
+    saveGroups(){ localStorage.setItem('verb_groups', JSON.stringify(this.groups)); },
+    stripCodeFences(str=''){ return String(str).replace(/^```[\s\S]*?\n/,'').replace(/```$/,'').trim(); },
+    decodeHTMLEntities(str=''){ const ta=document.createElement('textarea'); ta.innerHTML=str; return ta.value; },
+    showError(msg){ this.err.msg = msg; this.err.show = true; },
+    goPractice(){ this.currentView='practice'; window.scrollTo({ top:0, behavior:'smooth' }); },
 
-      async tryLoadOrUserModels(){
-        try{
-          const r = await fetch('https://openrouter.ai/api/v1/models/user',{
-            headers:{ 'Authorization':'Bearer '+(this.llm.keys.openrouter||'') }
-          });
-          if(!r.ok) throw new Error('HTTP '+r.status);
-          const data=await r.json();
-          const items=(data.data||[]).filter(x=>x.id && x.id.endsWith(':free'));
-          this.orUserFree = items.map(x=>({ id:x.id, label:x.id }));
-          if(!items.some(x=>x.id===this.modelChoice)){
-            this.modelChoice='openai/gpt-oss-20b:free';
-          }
-        }catch(e){
-          console.warn('OpenRouter /user 拉取失败：',e);
-          this.orUserFree=[];
-        }
-      },
+    // 设置
+    saveSettings(){
+      localStorage.setItem('llm_settings', JSON.stringify(this.llm));
+      this.currentView = 'library';
+      window.scrollTo({ top:0, behavior:'smooth' });
+    },
 
-      friendlyError(status, body=''){
-        const low=(body||'').toLowerCase();
-        if(status===401 || low.includes('unauthorized')||low.includes('invalid api')) return 'API Key 无效或未授权（401）。';
-        if(status===404 && (low.includes('model')||low.includes('not found'))) return '模型不存在/已下线（404）。';
-        if(status===429 || low.includes('rate')||low.includes('quota')||low.includes('exceed')) return '限流/额度不足（429/Quota）。';
-        if(status===400 || low.includes('bad request')) return '请求参数不合法（400）。';
-        return `调用失败（HTTP ${status||'未知'}）。`;
-      },
+    // 词库
+    addGroup(){
+      const name = (this.newGroupName||'').trim();
+      if(!name) return this.showError('分组名不能为空');
+      if(this.groups[name]) return this.showError('已存在同名分组');
+      this.groups[name] = [];
+      this.groups = { ...this.groups };
+      this.saveGroups();
+      this.currentGroup = name;
+      this.settings.groupName = name;
+      this.newGroupName = '';
+    },
+    addVerb(){
+      const v = (this.newVerb||'').trim();
+      if(!v) return;
+      const list = this.groups[this.currentGroup] || [];
+      if(!list.includes(v)){ list.push(v); this.groups[this.currentGroup] = list; this.saveGroups(); }
+      this.newVerb='';
+    },
+    removeVerb(idx){
+      (this.groups[this.currentGroup]||[]).splice(idx,1);
+      this.saveGroups();
+      this.groups = { ...this.groups };
+    },
+    moveVerb(verb, targetGroup){
+      if(!targetGroup) return;
+      if(!this.groups[targetGroup]) return this.showError('目标分组不存在');
+      const list = this.groups[this.currentGroup]||[];
+      const i = list.indexOf(verb); if(i>-1) list.splice(i,1);
+      if(!this.groups[targetGroup].includes(verb)) this.groups[targetGroup].push(verb);
+      this.saveGroups(); this.groups = { ...this.groups };
+    },
 
-      async callLLM({system=null, user}){
-        const provider=this.llm.provider;
-        const key=this.activeApiKey;
-        if(!key) throw new Error('API Key 为空。');
+    // Prompt
+    buildPracticePrompt(tense, level, verbs){
+      const total = verbs.length * 6;
+      return `You are a strict French teacher. For EACH verb below, create EXACTLY SIX fill-in-the-blank exercises in the SINGLE tense "${tense}", one per person in:
+[Je, Tu, Il/Elle/On, Nous, Vous, Ils/Elles].
+Level: ${level} (CEFR).
+Verbs: ${verbs.join(', ')}.
 
-        if(provider==='gemini'){
-          const model=(this.llm.model||'gemini-2.0-flash').trim();
-          const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
-          const resp=await fetch(url,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ contents:[{parts:[{text:(system?('[SYSTEM] '+system+'\n\n'):'')+user}]}] }) });
-          const raw=await resp.text();
-          if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
-          const data=JSON.parse(raw);
-          const txt=(data?.candidates?.[0]?.content?.parts||[]).map(p=>p.text).join('')||'';
-          if(!txt) throw new Error('模型无返回文本。');
-          return txt;
-        }
+Return a RAW JSON array with EXACTLY ${total} objects (no markdown fences). Each object MUST follow:
+{
+  "verb": "<infinitive>",
+  "tense": "${tense}",
+  "person": "<Je|Tu|Il/Elle/On|Nous|Vous|Ils/Elles>",
+  "answer": "<conjugated_verb_only>",
+  "prefix": "<sentence_part_before_verb_including_correct_subject_and_elision>",
+  "suffix": "<sentence_part_after_verb>",
+  "translation": "<Chinese translation>"
+}
 
-        let base=''; const headers={ 'Content-Type':'application/json', 'Authorization':'Bearer '+key };
-        if(provider==='openai') base='https://api.openai.com/v1/chat/completions';
-        else if(provider==='openrouter') base='https://openrouter.ai/api/v1/chat/completions';
-        else if(provider==='deepseek') base='https://api.deepseek.com/v1/chat/completions';
-        else if(provider==='custom'){
-          base=(this.llm.baseUrl||'').trim();
-          if(!base) throw new Error('自定义 Base URL 为空');
-        }
+Rules:
+1) One and only one exercise per (verb, person) pair in "${tense}".
+2) 'answer' is ONLY the correctly conjugated finite verb for that person and tense (no subject, no objects).
+   For compound tenses like "Passé Composé", the blank is the correctly conjugated auxiliary only; keep the past participle in prefix/suffix.
+3) Put the correct subject (with elision like "J'") in 'prefix'.
+4) Difficulty should match ${level}.`;
+    },
+    buildTablePrompt(verb){
+      return `Generate a clear, formatted HTML table of the conjugation for the French verb "${verb}".
+Include columns for: Présent, Passé Composé, Imparfait, Futur Simple.
+Include rows for: Je, Tu, Il/Elle, Nous, Vous, Ils/Elles.
+Use Tailwind CSS classes for styling (simple table). Output only the HTML table code.`;
+    },
 
-        const model = (this.llm.model||'').trim() || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-3.5-turbo'));
-        const payload={ model, messages:[ ...(system?[{role:'system',content:system}]:[]), {role:'user',content:user}], max_tokens:this.llm.max_tokens||512, temperature:this.llm.temperature ?? 0.2 };
+    // 文本抽取
+    extractText(data){
+      let t =
+        data?.choices?.[0]?.message?.content ??
+        data?.choices?.[0]?.delta?.content ??
+        data?.choices?.[0]?.text ??
+        data?.output_text ??
+        data?.response?.output_text ??
+        data?.choices?.[0]?.message?.reasoning ??
+        '';
+      if(!t && Array.isArray(data?.choices)){
+        t = data.choices.map(c => c?.message?.content || c?.delta?.content || c?.text).filter(Boolean).join('\n');
+      }
+      return (t || '').toString().trim();
+    },
 
-        let resp = await fetch(base,{ method:'POST', headers, body:JSON.stringify(payload) });
-        let raw  = await resp.text();
-        if(!resp.ok){
-          if(provider==='openrouter' && resp.status===404 && payload.model!=='openai/gpt-oss-20b:free'){
-            this.llm.model   = 'openai/gpt-oss-20b:free';
-            this.modelChoice = 'openai/gpt-oss-20b:free';
-            const fallbackPayload={ ...payload, model:'openai/gpt-oss-20b:free' };
-            resp = await fetch(base,{ method:'POST', headers, body:JSON.stringify(fallbackPayload) });
-            raw  = await resp.text();
-            if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
-          }else{
-            throw new Error(this.friendlyError(resp.status, raw));
-          }
-        }
+    // 友好错误
+    friendlyError(status, raw){
+      const txt = raw || '';
+      const low = txt.toLowerCase();
+      if(status === 401 || low.includes('unauthorized')) return 'Key 无效或没有权限（401）。请检查 API Key。';
+      if(status === 404 || low.includes('model_not_found')) return '模型名不被支持（404）。请更换模型 ID。';
+      if(status === 429 || low.includes('rate') || low.includes('quota') || low.includes('exceed')){
+        return '请求被限流或免费额度用完（429 / Quota）。请稍后重试或换别的模型/Key。';
+      }
+      if(low.includes('invalid') && low.includes('model')) return '模型 ID 格式不正确。';
+      if(low.includes('bad request') || status === 400) return '请求参数不合法（400）。请检查设置。';
+      return `调用失败（HTTP ${status || '未知'}）。`;
+    },
 
-        let data; try{ data=JSON.parse(raw) }catch{ throw new Error('服务端返回非 JSON。') }
-        if(data?.error) throw new Error(this.friendlyError(resp.status, data.error?.message||''));
-        const out=data?.choices?.[0]?.message?.content || '';
+    // 多提供商调用
+    async callLLM({system=null, user, stream=false}){
+      const provider = this.llm.provider;
+      const model = (this.llm.model||'').trim();
+      const key = this.activeApiKey;
+      if(!key) throw new Error('API Key 为空。');
+
+      // Gemini
+      if(provider==='gemini'){
+        const useModel = model || 'gemini-2.0-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useModel)}:generateContent`;
+        const payload = { contents: [{ role:'user', parts: [{ text: (system?(`[SYSTEM]\n${system}\n\n[USER]\n${user}`): user) }]}] };
+        const resp = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json','X-goog-api-key': key }, body: JSON.stringify(payload) });
+        const raw = await resp.text();
+        if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+        const data = JSON.parse(raw);
+        const out = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if(!out) throw new Error('模型无返回文本。');
         return out;
-      },
+      }
 
-      async startPracticeSession(){
-        if(!this.activeApiKey) return alert('请输入 API Key');
+      // OpenAI / OpenRouter / DeepSeek / 自定义：统一 chat-completions
+      let base = '';
+      const headers = { 'Content-Type':'application/json', 'Authorization': `Bearer ${key}` };
+      if(provider==='openai') base = 'https://api.openai.com/v1/chat/completions';
+      else if(provider==='openrouter') base = 'https://openrouter.ai/api/v1/chat/completions';
+      else if(provider==='deepseek') base = 'https://api.deepseek.com/v1/chat/completions';
+      else if(provider==='custom'){
+        base = (this.llm.baseUrl||'').trim();
+        if(!base) throw new Error('自定义 Base URL 为空');
+      }
 
-        const verbs=(this.groups['默认']||[]).slice();
-        if(!verbs.length) return alert('词库为空，请先添加动词');
+      const useModel =
+        model || (provider==='openai' ? 'gpt-3.5-turbo' : (provider==='deepseek' ? 'deepseek-chat' : 'openai/gpt-3.5-turbo'));
 
-        const picked=verbs.slice(0,5);
-        const prompt=this.promptTpl.replace('{{verbs}}', picked.join(', '));
+      const payload = {
+        model: useModel,
+        messages: [ ...(system ? [{ role:'system', content: system }] : []), { role:'user', content: user } ],
+        stream: !!stream,
+        max_tokens: 4096,
+        temperature: 0.2
+      };
 
-        this.lastOutput='生成中…';
-        try{
-          const text=await this.callLLM({ system:'你是专业法语教师，擅长构造简洁、分步、带答案与讲解的变位练习。', user:prompt });
-          this.lastOutput = text;
-        }catch(e){
-          console.error(e);
-          alert(e.message||'调用失败');
-          this.lastOutput='';
-        }
-      },
+      const resp = await fetch(base, { method:'POST', headers, body: JSON.stringify(payload) });
+      const raw = await resp.text();
+      if(!resp.ok) throw new Error(this.friendlyError(resp.status, raw));
+
+      let data;
+      try { data = JSON.parse(raw); }
+      catch(e){ console.error('非JSON返回：', raw); throw new Error('服务端返回非 JSON。'); }
+
+      if(data?.error){ console.error('API error payload:', data.error); throw new Error(this.friendlyError(resp.status, data.error?.message || '')); }
+
+      const out = this.extractText(data);
+      if(!out) throw new Error('模型无返回文本。');
+      return out;
+    },
+
+    // 练习
+    async startPracticeSession(){
+      if(!this.activeApiKey) return this.showError('请输入 API Key');
+
+      let targetVerbs = [];
+      if(this.settings.mode==='group'){
+        const g = this.settings.groupName;
+        targetVerbs = (this.groups[g] || []).slice();
+        if(!targetVerbs.length) return this.showError('该分组暂无动词');
+      }else{
+        const all = this.allVerbs.slice();
+        if(!all.length) return this.showError('词库为空');
+        const n = Math.max(1, Math.min(this.settings.count || 1, all.length));
+        targetVerbs = all.sort(()=>0.5-Math.random()).slice(0,n);
+      }
+
+      const persons = ['Je','Tu','Il/Elle/On','Nous','Vous','Ils/Elles'];
+      const total = targetVerbs.length * persons.length;
+
+      this.loading = true; this.loadingText = `正在生成 ${total} 道题...`;
+      const prompt = this.buildPracticePrompt(this.settings.tense, this.settings.level, targetVerbs);
+
+      try{
+        const result = await this.callLLM({ user: prompt });
+        const arr = JSON.parse(this.stripCodeFences(result));
+        this.sessionCards = (arr || []).sort(()=>0.5-Math.random());
+        this.isPracticeActive = true; this.currentIndex = 0; this.resetCardState();
+      }catch(e){
+        console.error(e);
+        this.showError(e.message || '生成失败');
+      }finally{ this.loading = false; }
+    },
+
+    async showConjugationTable(verb){
+      this.modalVerb = verb; this.showModal = true;
+      this.loading = true; this.loadingText = `正在查询 ${verb} 的变位...`;
+      this.modalContent = '<p class="text-center text-gray-500">加载中...</p>';
+      try{
+        const raw = await this.callLLM({ user: this.buildTablePrompt(verb) });
+        const noFence = this.stripCodeFences(raw);
+        this.modalContent = this.decodeHTMLEntities(noFence);
+      }catch(e){ console.error(e); this.modalContent = '<span class="text-red-600">加载失败：'+ (e.message||'') +'</span>'; }
+      finally{ this.loading = false; }
+    },
+
+    resetCardState(){
+      this.userInput=''; this.feedback={ status:'neutral', attempts:0, showAnswer:false };
+      this.$nextTick(()=>{ if(this.$refs.answerInput) this.$refs.answerInput.focus({ preventScroll:true }); });
+    },
+    checkAnswer(){
+      if(this.feedback.status==='correct') return;
+      const correct = (this.currentCard.answer || '').trim();
+      const input = this.userInput.trim();
+      if(!correct) return;
+      if(input === correct){ this.feedback.status='correct'; setTimeout(this.nextCard,1200); }
+      else { this.feedback.status='wrong'; this.feedback.attempts++; if(this.feedback.attempts>=3) this.feedback.showAnswer=true; }
+    },
+    nextCard(){
+      if(this.currentIndex < this.sessionCards.length - 1){ this.currentIndex++; this.resetCardState(); }
+      else { this.isPracticeActive=false; window.scrollTo({ top:0, behavior:'smooth' }); }
+    },
+    endPractice(){
+      if(confirm('确定退出当前练习吗？')){
+        this.isPracticeActive=false; this.userInput=''; this.feedback={ status:'neutral', attempts:0, showAnswer:false };
+        window.scrollTo({ top:0, behavior:'smooth' });
+      }
     }
-  }).mount('#app');
-  </script>
+  }
+}).mount('#app');
+</script>
 </body>
 </html>
